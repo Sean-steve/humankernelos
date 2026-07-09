@@ -26,7 +26,7 @@ export const Route = createFileRoute("/")({
       {
         property: "og:description",
         content:
-          "Not a task manager. The operating system for the human — energy, recovery, focus, and the next best action.",
+          "The Kernel of your personal operating system. One calm view of your human state, standards, and next best action.",
       },
     ],
   }),

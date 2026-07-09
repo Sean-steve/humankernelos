@@ -81,15 +81,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Human OS is the Kernel of your personal operating system. Not a task manager — the operating system for the human.",
+          "The Kernel of your personal operating system. One calm view of your human state, standards, and next best action.",
       },
       { name: "author", content: "Human OS" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:title", content: "Human OS — The Personal Kernel" },
+      { name: "twitter:title", content: "Human OS — The Personal Kernel" },
+      { property: "og:description", content: "The Kernel of your personal operating system. One calm view of your human state, standards, and next best action." },
+      { name: "twitter:description", content: "The Kernel of your personal operating system. One calm view of your human state, standards, and next best action." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/pPh1IlX3i4O2GQOnv91J0AYEEw63/social-images/social-1783631595583-human.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/pPh1IlX3i4O2GQOnv91J0AYEEw63/social-images/social-1783631595583-human.webp" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
       {

@@ -9,8 +9,44 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as StandardsRouteImport } from './routes/standards'
+import { Route as SignalsRouteImport } from './routes/signals'
+import { Route as ReflectionRouteImport } from './routes/reflection'
+import { Route as HumanStateRouteImport } from './routes/human-state'
+import { Route as EnginesRouteImport } from './routes/engines'
+import { Route as AchievementsRouteImport } from './routes/achievements'
 import { Route as IndexRouteImport } from './routes/index'
 
+const StandardsRoute = StandardsRouteImport.update({
+  id: '/standards',
+  path: '/standards',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignalsRoute = SignalsRouteImport.update({
+  id: '/signals',
+  path: '/signals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReflectionRoute = ReflectionRouteImport.update({
+  id: '/reflection',
+  path: '/reflection',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HumanStateRoute = HumanStateRouteImport.update({
+  id: '/human-state',
+  path: '/human-state',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EnginesRoute = EnginesRouteImport.update({
+  id: '/engines',
+  path: '/engines',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AchievementsRoute = AchievementsRouteImport.update({
+  id: '/achievements',
+  path: '/achievements',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +55,116 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/achievements': typeof AchievementsRoute
+  '/engines': typeof EnginesRoute
+  '/human-state': typeof HumanStateRoute
+  '/reflection': typeof ReflectionRoute
+  '/signals': typeof SignalsRoute
+  '/standards': typeof StandardsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/achievements': typeof AchievementsRoute
+  '/engines': typeof EnginesRoute
+  '/human-state': typeof HumanStateRoute
+  '/reflection': typeof ReflectionRoute
+  '/signals': typeof SignalsRoute
+  '/standards': typeof StandardsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/achievements': typeof AchievementsRoute
+  '/engines': typeof EnginesRoute
+  '/human-state': typeof HumanStateRoute
+  '/reflection': typeof ReflectionRoute
+  '/signals': typeof SignalsRoute
+  '/standards': typeof StandardsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/achievements'
+    | '/engines'
+    | '/human-state'
+    | '/reflection'
+    | '/signals'
+    | '/standards'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/achievements'
+    | '/engines'
+    | '/human-state'
+    | '/reflection'
+    | '/signals'
+    | '/standards'
+  id:
+    | '__root__'
+    | '/'
+    | '/achievements'
+    | '/engines'
+    | '/human-state'
+    | '/reflection'
+    | '/signals'
+    | '/standards'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AchievementsRoute: typeof AchievementsRoute
+  EnginesRoute: typeof EnginesRoute
+  HumanStateRoute: typeof HumanStateRoute
+  ReflectionRoute: typeof ReflectionRoute
+  SignalsRoute: typeof SignalsRoute
+  StandardsRoute: typeof StandardsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/standards': {
+      id: '/standards'
+      path: '/standards'
+      fullPath: '/standards'
+      preLoaderRoute: typeof StandardsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signals': {
+      id: '/signals'
+      path: '/signals'
+      fullPath: '/signals'
+      preLoaderRoute: typeof SignalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reflection': {
+      id: '/reflection'
+      path: '/reflection'
+      fullPath: '/reflection'
+      preLoaderRoute: typeof ReflectionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/human-state': {
+      id: '/human-state'
+      path: '/human-state'
+      fullPath: '/human-state'
+      preLoaderRoute: typeof HumanStateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/engines': {
+      id: '/engines'
+      path: '/engines'
+      fullPath: '/engines'
+      preLoaderRoute: typeof EnginesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/achievements': {
+      id: '/achievements'
+      path: '/achievements'
+      fullPath: '/achievements'
+      preLoaderRoute: typeof AchievementsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,6 +177,12 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AchievementsRoute: AchievementsRoute,
+  EnginesRoute: EnginesRoute,
+  HumanStateRoute: HumanStateRoute,
+  ReflectionRoute: ReflectionRoute,
+  SignalsRoute: SignalsRoute,
+  StandardsRoute: StandardsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -14,6 +14,7 @@ import { Route as SignalsRouteImport } from './routes/signals'
 import { Route as ReflectionRouteImport } from './routes/reflection'
 import { Route as HumanStateRouteImport } from './routes/human-state'
 import { Route as EnginesRouteImport } from './routes/engines'
+import { Route as CheckInRouteImport } from './routes/check-in'
 import { Route as AchievementsRouteImport } from './routes/achievements'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -42,6 +43,11 @@ const EnginesRoute = EnginesRouteImport.update({
   path: '/engines',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CheckInRoute = CheckInRouteImport.update({
+  id: '/check-in',
+  path: '/check-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AchievementsRoute = AchievementsRouteImport.update({
   id: '/achievements',
   path: '/achievements',
@@ -56,6 +62,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/achievements': typeof AchievementsRoute
+  '/check-in': typeof CheckInRoute
   '/engines': typeof EnginesRoute
   '/human-state': typeof HumanStateRoute
   '/reflection': typeof ReflectionRoute
@@ -65,6 +72,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/achievements': typeof AchievementsRoute
+  '/check-in': typeof CheckInRoute
   '/engines': typeof EnginesRoute
   '/human-state': typeof HumanStateRoute
   '/reflection': typeof ReflectionRoute
@@ -75,6 +83,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/achievements': typeof AchievementsRoute
+  '/check-in': typeof CheckInRoute
   '/engines': typeof EnginesRoute
   '/human-state': typeof HumanStateRoute
   '/reflection': typeof ReflectionRoute
@@ -86,6 +95,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/achievements'
+    | '/check-in'
     | '/engines'
     | '/human-state'
     | '/reflection'
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/achievements'
+    | '/check-in'
     | '/engines'
     | '/human-state'
     | '/reflection'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/achievements'
+    | '/check-in'
     | '/engines'
     | '/human-state'
     | '/reflection'
@@ -114,6 +126,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AchievementsRoute: typeof AchievementsRoute
+  CheckInRoute: typeof CheckInRoute
   EnginesRoute: typeof EnginesRoute
   HumanStateRoute: typeof HumanStateRoute
   ReflectionRoute: typeof ReflectionRoute
@@ -158,6 +171,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EnginesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/check-in': {
+      id: '/check-in'
+      path: '/check-in'
+      fullPath: '/check-in'
+      preLoaderRoute: typeof CheckInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/achievements': {
       id: '/achievements'
       path: '/achievements'
@@ -178,6 +198,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AchievementsRoute: AchievementsRoute,
+  CheckInRoute: CheckInRoute,
   EnginesRoute: EnginesRoute,
   HumanStateRoute: HumanStateRoute,
   ReflectionRoute: ReflectionRoute,

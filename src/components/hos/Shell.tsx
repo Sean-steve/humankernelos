@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Activity,
   CircleGauge,
@@ -11,23 +12,25 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { icon: Sun, label: "Today", active: true },
-  { icon: CircleGauge, label: "Human State" },
-  { icon: Compass, label: "Standards" },
-  { icon: Flame, label: "Achievements" },
-  { icon: Layers, label: "Engines" },
-  { icon: Activity, label: "Signals" },
-  { icon: Moon, label: "Reflection" },
-];
+  { icon: Sun, label: "Today", to: "/" },
+  { icon: CircleGauge, label: "Human State", to: "/human-state" },
+  { icon: Compass, label: "Standards", to: "/standards" },
+  { icon: Flame, label: "Achievements", to: "/achievements" },
+  { icon: Layers, label: "Engines", to: "/engines" },
+  { icon: Activity, label: "Signals", to: "/signals" },
+  { icon: Moon, label: "Reflection", to: "/reflection" },
+] as const;
 
 export function Shell({ children }: { children: ReactNode }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
   return (
     <div className="min-h-screen w-full">
       <div className="mx-auto flex min-h-screen max-w-[1400px]">
         {/* Sidebar */}
         <aside className="hidden w-60 shrink-0 flex-col justify-between border-r hairline px-5 py-8 md:flex">
           <div>
-            <div className="flex items-center gap-2.5">
+            <Link to="/" className="flex items-center gap-2.5">
               <div className="grid h-8 w-8 place-items-center rounded-md bg-primary/15 text-primary">
                 <Sparkles className="h-4 w-4" strokeWidth={1.5} />
               </div>
@@ -39,29 +42,35 @@ export function Shell({ children }: { children: ReactNode }) {
                   Kernel · v0.1
                 </div>
               </div>
-            </div>
+            </Link>
 
             <nav className="mt-10 flex flex-col gap-0.5">
-              {navItems.map(({ icon: Icon, label, active }) => (
-                <button
-                  key={label}
-                  className={
-                    "group flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors " +
-                    (active
-                      ? "bg-surface-elevated text-foreground"
-                      : "text-muted-foreground hover:bg-surface hover:text-foreground")
-                  }
-                >
-                  <Icon
+              {navItems.map(({ icon: Icon, label, to }) => {
+                const active = pathname === to;
+                return (
+                  <Link
+                    key={label}
+                    to={to}
                     className={
-                      "h-4 w-4 " +
-                      (active ? "text-primary" : "text-muted-foreground group-hover:text-foreground")
+                      "group flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors " +
+                      (active
+                        ? "bg-surface-elevated text-foreground"
+                        : "text-muted-foreground hover:bg-surface hover:text-foreground")
                     }
-                    strokeWidth={1.5}
-                  />
-                  {label}
-                </button>
-              ))}
+                  >
+                    <Icon
+                      className={
+                        "h-4 w-4 " +
+                        (active
+                          ? "text-primary"
+                          : "text-muted-foreground group-hover:text-foreground")
+                      }
+                      strokeWidth={1.5}
+                    />
+                    {label}
+                  </Link>
+                );
+              })}
             </nav>
           </div>
 

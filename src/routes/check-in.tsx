@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, ArrowRight } from "lucide-react";
+import { toast } from "sonner";
 import { Shell } from "@/components/hos/Shell";
 import { PageHeader } from "@/components/hos/PageHeader";
 import { StateRing } from "@/components/hos/StateRing";
-import { getAdvisorDirective } from "@/lib/advisor.functions";
+import { submitCheckIn } from "@/lib/check-in.functions";
+import { useSession } from "@/hooks/use-session";
 
 export const Route = createFileRoute("/check-in")({
   head: () => ({
@@ -64,8 +66,9 @@ function CheckInPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const call = useServerFn(getAdvisorDirective);
+  const call = useServerFn(submitCheckIn);
   const navigate = useNavigate();
+  const { session, loading: sessionLoading } = useSession();
 
   const set =
     <K extends keyof Reading>(key: K) =>
@@ -73,24 +76,27 @@ function CheckInPage() {
       setR((prev) => ({ ...prev, [key]: v }));
 
   async function submit() {
+    if (!session) {
+      navigate({ to: "/auth" });
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const res = await call({
         data: {
-          humanState: {
-            energy: r.energy,
-            focus: r.focus,
-            recovery: r.recovery,
-            stress: r.stress,
-            mood: r.mood,
-            sleepHours: r.sleepHours,
-          },
-          context: r.note || undefined,
+          energy: r.energy,
+          focus: r.focus,
+          recovery: r.recovery,
+          stress: r.stress,
+          mood: r.mood,
+          sleepHours: r.sleepHours,
+          note: r.note || undefined,
         },
       });
+      const text = res.directive ?? "";
       const get = (k: string) => {
-        const m = res.text.match(new RegExp(`${k}:\\s*(.+?)(?:\\n|$)`, "i"));
+        const m = text.match(new RegExp(`${k}:\\s*(.+?)(?:\\n|$)`, "i"));
         return m?.[1]?.trim() ?? "";
       };
       setAdvice({
@@ -98,12 +104,14 @@ function CheckInPage() {
         why: get("WHY"),
         avoid: get("AVOID"),
       });
+      toast.success("Check-in saved.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Advisor unavailable");
     } finally {
       setLoading(false);
     }
   }
+
 
   return (
     <Shell>

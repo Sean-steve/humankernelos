@@ -15,6 +15,8 @@ import {
   Workflow,
 } from "lucide-react";
 import { CommandPalette } from "./CommandPalette";
+import { useSession } from "@/hooks/use-session";
+import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   { icon: Sun, label: "Today", to: "/" },
@@ -167,23 +169,57 @@ export function Shell({ children }: { children: ReactNode }) {
             </nav>
           </div>
 
-          <div className="rounded-lg border hairline bg-surface/60 p-4">
-            <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-              Connected systems
+          <div className="flex flex-col gap-3">
+            <div className="rounded-lg border hairline bg-surface/60 p-4">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                Connected systems
+              </div>
+              <div className="mt-2 space-y-1.5 text-xs text-muted-foreground">
+                {["Body OS", "Trading OS", "Finance OS", "Nutrition"].map((s) => (
+                  <div key={s} className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                    {s}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="mt-2 space-y-1.5 text-xs text-muted-foreground">
-              {["Body OS", "Trading OS", "Finance OS", "Nutrition"].map((s) => (
-                <div key={s} className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                  {s}
-                </div>
-              ))}
-            </div>
+            <AccountBadge />
           </div>
         </aside>
+
 
         <main className="flex-1 px-5 py-8 md:px-10 md:py-12">{children}</main>
       </div>
     </div>
   );
 }
+
+function AccountBadge() {
+  const { session, loading } = useSession();
+  if (loading) return null;
+  if (!session) {
+    return (
+      <Link
+        to="/auth"
+        className="rounded-lg border hairline bg-surface/60 px-4 py-3 text-xs text-muted-foreground hover:text-foreground"
+      >
+        <div className="uppercase tracking-[0.14em]">Not signed in</div>
+        <div className="mt-1 text-foreground/90">Sign in to persist state →</div>
+      </Link>
+    );
+  }
+  const email = session.user.email ?? "signed in";
+  return (
+    <div className="rounded-lg border hairline bg-surface/60 p-4 text-xs">
+      <div className="uppercase tracking-[0.14em] text-muted-foreground">Operator</div>
+      <div className="mt-1 truncate text-foreground/90">{email}</div>
+      <button
+        onClick={() => supabase.auth.signOut()}
+        className="mt-2 text-[11px] text-muted-foreground hover:text-foreground"
+      >
+        Sign out
+      </button>
+    </div>
+  );
+}
+

@@ -12,13 +12,16 @@ import {
   Sun,
   X,
   ClipboardCheck,
+  Workflow,
 } from "lucide-react";
+import { CommandPalette } from "./CommandPalette";
 
 const navItems = [
   { icon: Sun, label: "Today", to: "/" },
   { icon: ClipboardCheck, label: "Check-in", to: "/check-in" },
   { icon: CircleGauge, label: "Human State", to: "/human-state" },
   { icon: Compass, label: "Standards", to: "/standards" },
+  { icon: Workflow, label: "Protocols", to: "/protocols" },
   { icon: Flame, label: "Achievements", to: "/achievements" },
   { icon: Layers, label: "Engines", to: "/engines" },
   { icon: Activity, label: "Signals", to: "/signals" },
@@ -31,6 +34,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen w-full">
+      <CommandPalette />
       {/* Mobile top bar */}
       <div className="sticky top-0 z-30 flex items-center justify-between border-b hairline bg-background/80 px-4 py-3 backdrop-blur md:hidden">
         <Link to="/" className="flex items-center gap-2">

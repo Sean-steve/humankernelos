@@ -12,13 +12,16 @@ import {
   Sun,
   X,
   ClipboardCheck,
+  Workflow,
 } from "lucide-react";
+import { CommandPalette } from "./CommandPalette";
 
 const navItems = [
   { icon: Sun, label: "Today", to: "/" },
   { icon: ClipboardCheck, label: "Check-in", to: "/check-in" },
   { icon: CircleGauge, label: "Human State", to: "/human-state" },
   { icon: Compass, label: "Standards", to: "/standards" },
+  { icon: Workflow, label: "Protocols", to: "/protocols" },
   { icon: Flame, label: "Achievements", to: "/achievements" },
   { icon: Layers, label: "Engines", to: "/engines" },
   { icon: Activity, label: "Signals", to: "/signals" },

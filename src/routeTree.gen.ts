@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as StandardsRouteImport } from './routes/standards'
 import { Route as SignalsRouteImport } from './routes/signals'
 import { Route as ReflectionRouteImport } from './routes/reflection'
+import { Route as ProtocolsRouteImport } from './routes/protocols'
 import { Route as HumanStateRouteImport } from './routes/human-state'
 import { Route as EnginesRouteImport } from './routes/engines'
 import { Route as CheckInRouteImport } from './routes/check-in'
@@ -31,6 +32,11 @@ const SignalsRoute = SignalsRouteImport.update({
 const ReflectionRoute = ReflectionRouteImport.update({
   id: '/reflection',
   path: '/reflection',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProtocolsRoute = ProtocolsRouteImport.update({
+  id: '/protocols',
+  path: '/protocols',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HumanStateRoute = HumanStateRouteImport.update({
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/check-in': typeof CheckInRoute
   '/engines': typeof EnginesRoute
   '/human-state': typeof HumanStateRoute
+  '/protocols': typeof ProtocolsRoute
   '/reflection': typeof ReflectionRoute
   '/signals': typeof SignalsRoute
   '/standards': typeof StandardsRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/check-in': typeof CheckInRoute
   '/engines': typeof EnginesRoute
   '/human-state': typeof HumanStateRoute
+  '/protocols': typeof ProtocolsRoute
   '/reflection': typeof ReflectionRoute
   '/signals': typeof SignalsRoute
   '/standards': typeof StandardsRoute
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/check-in': typeof CheckInRoute
   '/engines': typeof EnginesRoute
   '/human-state': typeof HumanStateRoute
+  '/protocols': typeof ProtocolsRoute
   '/reflection': typeof ReflectionRoute
   '/signals': typeof SignalsRoute
   '/standards': typeof StandardsRoute
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/check-in'
     | '/engines'
     | '/human-state'
+    | '/protocols'
     | '/reflection'
     | '/signals'
     | '/standards'
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/check-in'
     | '/engines'
     | '/human-state'
+    | '/protocols'
     | '/reflection'
     | '/signals'
     | '/standards'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/check-in'
     | '/engines'
     | '/human-state'
+    | '/protocols'
     | '/reflection'
     | '/signals'
     | '/standards'
@@ -129,6 +141,7 @@ export interface RootRouteChildren {
   CheckInRoute: typeof CheckInRoute
   EnginesRoute: typeof EnginesRoute
   HumanStateRoute: typeof HumanStateRoute
+  ProtocolsRoute: typeof ProtocolsRoute
   ReflectionRoute: typeof ReflectionRoute
   SignalsRoute: typeof SignalsRoute
   StandardsRoute: typeof StandardsRoute
@@ -155,6 +168,13 @@ declare module '@tanstack/react-router' {
       path: '/reflection'
       fullPath: '/reflection'
       preLoaderRoute: typeof ReflectionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/protocols': {
+      id: '/protocols'
+      path: '/protocols'
+      fullPath: '/protocols'
+      preLoaderRoute: typeof ProtocolsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/human-state': {
@@ -201,6 +221,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckInRoute: CheckInRoute,
   EnginesRoute: EnginesRoute,
   HumanStateRoute: HumanStateRoute,
+  ProtocolsRoute: ProtocolsRoute,
   ReflectionRoute: ReflectionRoute,
   SignalsRoute: SignalsRoute,
   StandardsRoute: StandardsRoute,
@@ -208,13 +229,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -167,20 +167,24 @@ export function Shell({ children }: { children: ReactNode }) {
             </nav>
           </div>
 
-          <div className="rounded-lg border hairline bg-surface/60 p-4">
-            <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-              Connected systems
+          <div className="flex flex-col gap-3">
+            <div className="rounded-lg border hairline bg-surface/60 p-4">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                Connected systems
+              </div>
+              <div className="mt-2 space-y-1.5 text-xs text-muted-foreground">
+                {["Body OS", "Trading OS", "Finance OS", "Nutrition"].map((s) => (
+                  <div key={s} className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                    {s}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="mt-2 space-y-1.5 text-xs text-muted-foreground">
-              {["Body OS", "Trading OS", "Finance OS", "Nutrition"].map((s) => (
-                <div key={s} className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                  {s}
-                </div>
-              ))}
-            </div>
+            <AccountBadge />
           </div>
         </aside>
+
 
         <main className="flex-1 px-5 py-8 md:px-10 md:py-12">{children}</main>
       </div>

@@ -121,6 +121,20 @@ function CheckInPage() {
         intro="Sixty seconds. The Kernel reads what you enter, cross-checks it against connected engines, and returns one calm directive for the next window of your day."
       />
 
+      {!sessionLoading && !session && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border hairline bg-primary/5 px-4 py-3 text-sm">
+          <span className="text-foreground/90">
+            Sign in to persist your check-ins and build your Human State timeline.
+          </span>
+          <Link
+            to="/auth"
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+          >
+            Sign in
+          </Link>
+        </div>
+      )}
+
       <section className="mt-10 grid gap-6 lg:grid-cols-[1.3fr_1fr]">
         {/* Form */}
         <div className="rounded-2xl border hairline bg-surface p-6">

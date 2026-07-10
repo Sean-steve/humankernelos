@@ -34,6 +34,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen w-full">
+      <CommandPalette />
       {/* Mobile top bar */}
       <div className="sticky top-0 z-30 flex items-center justify-between border-b hairline bg-background/80 px-4 py-3 backdrop-blur md:hidden">
         <Link to="/" className="flex items-center gap-2">

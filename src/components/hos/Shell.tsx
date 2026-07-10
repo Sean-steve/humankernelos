@@ -191,3 +191,33 @@ export function Shell({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+function AccountBadge() {
+  const { session, loading } = useSession();
+  if (loading) return null;
+  if (!session) {
+    return (
+      <Link
+        to="/auth"
+        className="rounded-lg border hairline bg-surface/60 px-4 py-3 text-xs text-muted-foreground hover:text-foreground"
+      >
+        <div className="uppercase tracking-[0.14em]">Not signed in</div>
+        <div className="mt-1 text-foreground/90">Sign in to persist state →</div>
+      </Link>
+    );
+  }
+  const email = session.user.email ?? "signed in";
+  return (
+    <div className="rounded-lg border hairline bg-surface/60 p-4 text-xs">
+      <div className="uppercase tracking-[0.14em] text-muted-foreground">Operator</div>
+      <div className="mt-1 truncate text-foreground/90">{email}</div>
+      <button
+        onClick={() => supabase.auth.signOut()}
+        className="mt-2 text-[11px] text-muted-foreground hover:text-foreground"
+      >
+        Sign out
+      </button>
+    </div>
+  );
+}
+

@@ -15,6 +15,8 @@ import {
   Workflow,
 } from "lucide-react";
 import { CommandPalette } from "./CommandPalette";
+import { useSession } from "@/hooks/use-session";
+import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   { icon: Sun, label: "Today", to: "/" },

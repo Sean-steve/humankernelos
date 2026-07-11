@@ -37,10 +37,8 @@ export const submitCheckIn = createServerFn({ method: "POST" })
         const summary = `Energy ${data.energy}/100, Focus ${data.focus}/100, Recovery ${data.recovery}/100, Stress ${data.stress}/100, Mood ${data.mood}/100, Sleep ${data.sleepHours}h.${data.note ? " Context: " + data.note : ""}`;
         const { text } = await generateText({
           model,
-          messages: [
-            { role: "system", content: SYSTEM },
-            { role: "user", content: summary },
-          ],
+          system: SYSTEM,
+          prompt: summary,
         });
         directive = text.trim();
       } catch (e) {

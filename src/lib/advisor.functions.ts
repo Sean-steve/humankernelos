@@ -40,10 +40,8 @@ export const getAdvisorDirective = createServerFn({ method: "POST" })
 
     const { text } = await generateText({
       model,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: stateSummary },
-      ],
+      system: SYSTEM_PROMPT,
+      prompt: stateSummary,
     });
 
     return { text: text.trim() };

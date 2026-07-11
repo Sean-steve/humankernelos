@@ -59,17 +59,17 @@ export function Advisor({ state }: { state?: HumanState }) {
 
         <button
           onClick={run}
-          disabled={state.loading}
+          disabled={localState.loading}
           className="inline-flex items-center gap-2 rounded-md border hairline bg-surface-elevated px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted disabled:opacity-60"
         >
-          {state.loading ? (
+          {localState.loading ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : state.data ? (
+          ) : localState.data ? (
             <RefreshCw className="h-3.5 w-3.5" />
           ) : (
             <Sparkles className="h-3.5 w-3.5 text-primary" />
           )}
-          {state.data ? "Reconsider" : "Ask the advisor"}
+          {localState.data ? "Reconsider" : "Ask the advisor"}
         </button>
       </div>
 

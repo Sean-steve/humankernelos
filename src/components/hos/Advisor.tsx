@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Sparkles, Loader2, RefreshCw } from "lucide-react";
 import { getAdvisorDirective } from "@/lib/advisor.functions";
-import { humanState } from "@/lib/hos-data";
+import { humanState as seedHumanState } from "@/lib/hos-data";
+import type { HumanState } from "@/routes/index";
 
 function parseDirective(raw: string) {
   const get = (key: string) => {
@@ -16,23 +17,25 @@ function parseDirective(raw: string) {
   };
 }
 
-export function Advisor() {
+export function Advisor({ state }: { state?: HumanState }) {
   const call = useServerFn(getAdvisorDirective);
-  const [state, setState] = useState<{
+  const [localState, setLocalState] = useState<{
     loading: boolean;
     error?: string;
     data?: ReturnType<typeof parseDirective>;
   }>({ loading: false });
 
+  const humanState = state ?? seedHumanState;
+
   async function run() {
-    setState({ loading: true });
+    setLocalState({ loading: true });
     try {
       const res = await call({ data: { humanState } });
       const parsed = parseDirective(res.text);
-      setState({ loading: false, data: parsed });
+      setLocalState({ loading: false, data: parsed });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Advisor unavailable";
-      setState({ loading: false, error: msg });
+      setLocalState({ loading: false, error: msg });
     }
   }
 

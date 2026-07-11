@@ -24,12 +24,30 @@ export const Route = createFileRoute("/reflection")({
   component: ReflectionPage,
 });
 
+type Entry = { id: string; prompt: string; entry: string; created_at: string };
+
 function ReflectionPage() {
   const [prompt, setPrompt] = useState(reflectionPrompts[0]);
   const [entry, setEntry] = useState("");
   const [saving, setSaving] = useState(false);
+  const [history, setHistory] = useState<Entry[]>([]);
   const call = useServerFn(submitReflection);
+  const list = useServerFn(listRecentReflections);
   const { session, loading } = useSession();
+
+  const loadHistory = useCallback(() => {
+    if (!session) {
+      setHistory([]);
+      return;
+    }
+    list()
+      .then((res) => setHistory(res.reflections as Entry[]))
+      .catch(() => {});
+  }, [session, list]);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   async function save() {
     if (!entry.trim()) return;
@@ -38,6 +56,7 @@ function ReflectionPage() {
       await call({ data: { prompt, entry: entry.trim() } });
       toast.success("Entry saved to your Kernel.");
       setEntry("");
+      loadHistory();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save");
     } finally {

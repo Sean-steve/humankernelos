@@ -23,8 +23,48 @@ export const Route = createFileRoute("/human-state")({
   component: HumanStatePage,
 });
 
+type TimelinePoint = {
+  label: string;
+  energy: number;
+  focus: number;
+  recovery: number;
+  stress: number;
+};
+
 function HumanStatePage() {
   const max = 100;
+  const { session } = useSession();
+  const call = useServerFn(listRecentCheckIns);
+  const [timeline, setTimeline] = useState<TimelinePoint[]>(seedTimeline);
+  const [live, setLive] = useState(false);
+
+  useEffect(() => {
+    if (!session) {
+      setTimeline(seedTimeline);
+      setLive(false);
+      return;
+    }
+    call()
+      .then((res) => {
+        if (!res.checkIns.length) return;
+        const points: TimelinePoint[] = [...res.checkIns]
+          .reverse()
+          .slice(-7)
+          .map((c) => ({
+            label: new Date(c.created_at).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            energy: c.energy,
+            focus: c.focus,
+            recovery: c.recovery,
+            stress: c.stress,
+          }));
+        setTimeline(points);
+        setLive(true);
+      })
+      .catch(() => {});
+  }, [session, call]);
 
   return (
     <Shell>

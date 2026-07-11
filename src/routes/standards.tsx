@@ -1,9 +1,13 @@
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { Check } from "lucide-react";
 import { Shell } from "@/components/hos/Shell";
 import { PageHeader } from "@/components/hos/PageHeader";
-import { standards, identity } from "@/lib/hos-data";
-import { identityStatements } from "@/lib/hos-extras";
+import { standards, identity as seedIdentity } from "@/lib/hos-data";
+import { identityStatements as defaultStatements } from "@/lib/hos-extras";
+import { getMyProfile } from "@/lib/history.functions";
+import { useSession } from "@/hooks/use-session";
 
 export const Route = createFileRoute("/standards")({
   head: () => ({

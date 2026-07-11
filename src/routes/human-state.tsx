@@ -1,9 +1,13 @@
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { Shell } from "@/components/hos/Shell";
 import { PageHeader } from "@/components/hos/PageHeader";
 import { StateRing } from "@/components/hos/StateRing";
 import { humanState, stateCards } from "@/lib/hos-data";
-import { humanStateTimeline, stateNarratives } from "@/lib/hos-extras";
+import { humanStateTimeline as seedTimeline, stateNarratives } from "@/lib/hos-extras";
+import { listRecentCheckIns } from "@/lib/history.functions";
+import { useSession } from "@/hooks/use-session";
 
 export const Route = createFileRoute("/human-state")({
   head: () => ({
@@ -19,8 +23,48 @@ export const Route = createFileRoute("/human-state")({
   component: HumanStatePage,
 });
 
+type TimelinePoint = {
+  label: string;
+  energy: number;
+  focus: number;
+  recovery: number;
+  stress: number;
+};
+
 function HumanStatePage() {
   const max = 100;
+  const { session } = useSession();
+  const call = useServerFn(listRecentCheckIns);
+  const [timeline, setTimeline] = useState<TimelinePoint[]>(seedTimeline);
+  const [live, setLive] = useState(false);
+
+  useEffect(() => {
+    if (!session) {
+      setTimeline(seedTimeline);
+      setLive(false);
+      return;
+    }
+    call()
+      .then((res) => {
+        if (!res.checkIns.length) return;
+        const points: TimelinePoint[] = [...res.checkIns]
+          .reverse()
+          .slice(-7)
+          .map((c) => ({
+            label: new Date(c.created_at).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            energy: c.energy,
+            focus: c.focus,
+            recovery: c.recovery,
+            stress: c.stress,
+          }));
+        setTimeline(points);
+        setLive(true);
+      })
+      .catch(() => {});
+  }, [session, call]);
 
   return (
     <Shell>
@@ -62,15 +106,22 @@ function HumanStatePage() {
 
       {/* Timeline */}
       <section className="mt-10 rounded-2xl border hairline bg-surface p-6">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-          Today, hour by hour
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              {live ? "Your last 7 check-ins" : "Today, hour by hour"}
+            </div>
+            <h2 className="mt-1 font-display text-xl">
+              Where your operating condition moves
+            </h2>
+          </div>
+          <span className="rounded-full border hairline px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            {live ? "Live" : "Sample"}
+          </span>
         </div>
-        <h2 className="mt-1 font-display text-xl">
-          Where your operating condition moves
-        </h2>
 
         <div className="mt-8 grid grid-cols-7 gap-3">
-          {humanStateTimeline.map((t) => (
+          {timeline.map((t) => (
             <div key={t.label} className="flex flex-col items-center gap-2">
               <div className="flex h-40 w-full items-end gap-1">
                 <Bar value={t.energy} max={max} color="var(--color-primary)" />

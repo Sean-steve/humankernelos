@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowUpRight, Circle } from "lucide-react";
 import { Shell } from "@/components/hos/Shell";
@@ -42,11 +43,16 @@ function greeting() {
 }
 
 function Home() {
-  const today = new Date().toLocaleDateString(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
+  const [today, setToday] = useState<string>("");
+  useEffect(() => {
+    setToday(
+      new Date().toLocaleDateString(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      }),
+    );
+  }, []);
 
   return (
     <Shell>

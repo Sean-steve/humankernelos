@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Moon, Loader2 } from "lucide-react";
@@ -7,6 +7,7 @@ import { Shell } from "@/components/hos/Shell";
 import { PageHeader } from "@/components/hos/PageHeader";
 import { reflectionPrompts } from "@/lib/hos-extras";
 import { submitReflection } from "@/lib/reflection.functions";
+import { listRecentReflections } from "@/lib/history.functions";
 import { useSession } from "@/hooks/use-session";
 
 export const Route = createFileRoute("/reflection")({
@@ -23,12 +24,30 @@ export const Route = createFileRoute("/reflection")({
   component: ReflectionPage,
 });
 
+type Entry = { id: string; prompt: string; entry: string; created_at: string };
+
 function ReflectionPage() {
   const [prompt, setPrompt] = useState(reflectionPrompts[0]);
   const [entry, setEntry] = useState("");
   const [saving, setSaving] = useState(false);
+  const [history, setHistory] = useState<Entry[]>([]);
   const call = useServerFn(submitReflection);
+  const list = useServerFn(listRecentReflections);
   const { session, loading } = useSession();
+
+  const loadHistory = useCallback(() => {
+    if (!session) {
+      setHistory([]);
+      return;
+    }
+    list()
+      .then((res) => setHistory(res.reflections as Entry[]))
+      .catch(() => {});
+  }, [session, list]);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   async function save() {
     if (!entry.trim()) return;
@@ -37,6 +56,7 @@ function ReflectionPage() {
       await call({ data: { prompt, entry: entry.trim() } });
       toast.success("Entry saved to your Kernel.");
       setEntry("");
+      loadHistory();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save");
     } finally {
@@ -127,6 +147,36 @@ function ReflectionPage() {
           </ul>
         </aside>
       </section>
+
+      {session && history.length > 0 && (
+        <section className="mt-10">
+          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            Journal · recent entries
+          </div>
+          <h2 className="mt-1 font-display text-xl">The ledger of your reflection</h2>
+          <ul className="mt-5 space-y-3">
+            {history.map((h) => (
+              <li
+                key={h.id}
+                className="rounded-xl border hairline bg-surface p-5"
+              >
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span className="uppercase tracking-[0.14em]">{h.prompt}</span>
+                  <time className="font-mono">
+                    {new Date(h.created_at).toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </time>
+                </div>
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+                  {h.entry}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </Shell>
   );
 }

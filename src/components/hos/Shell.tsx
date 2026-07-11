@@ -8,6 +8,7 @@ import {
   Layers,
   Menu,
   Moon,
+  Settings,
   Sparkles,
   Sun,
   X,
@@ -184,6 +185,13 @@ export function Shell({ children }: { children: ReactNode }) {
               </div>
             </div>
             <AccountBadge />
+            <Link
+              to="/settings"
+              className="inline-flex items-center gap-2 rounded-lg border hairline bg-surface/60 px-4 py-3 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Settings className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Settings
+            </Link>
           </div>
         </aside>
 

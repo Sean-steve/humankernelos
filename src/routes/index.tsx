@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
-import { ArrowUpRight, Circle } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { ArrowUpRight, Circle, Loader2 } from "lucide-react";
 import { Shell } from "@/components/hos/Shell";
 import { StateRing } from "@/components/hos/StateRing";
 import { Advisor } from "@/components/hos/Advisor";
+import { getMyProfile } from "@/lib/history.functions";
+import { getLatestCheckIn } from "@/lib/history.functions";
+import { useSession } from "@/hooks/use-session";
 import {
   achievements,
-  humanState,
-  identity,
+  humanState as seedHumanState,
+  identity as seedIdentity,
   signals,
   standards,
   stateCards,
@@ -42,8 +46,36 @@ function greeting() {
   return "Good evening";
 }
 
+export type HumanState = {
+  energy: number;
+  focus: number;
+  recovery: number;
+  stress: number;
+  mood: number;
+  momentum: number;
+  confidence: number;
+  sleepHours: number;
+};
+
+type Profile = {
+  name: string;
+  becoming: string;
+  primary_standard: string;
+};
+
 function Home() {
   const [today, setToday] = useState<string>("");
+  const [profile, setProfile] = useState<Profile>({
+    name: seedIdentity.name,
+    becoming: seedIdentity.becoming,
+    primary_standard: seedIdentity.primaryStandard,
+  });
+  const [liveState, setLiveState] = useState<HumanState | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { session, loading: sessionLoading } = useSession();
+  const getProfile = useServerFn(getMyProfile);
+  const getCheckIn = useServerFn(getLatestCheckIn);
+
   useEffect(() => {
     setToday(
       new Date().toLocaleDateString(undefined, {
@@ -53,6 +85,41 @@ function Home() {
       }),
     );
   }, []);
+
+  useEffect(() => {
+    if (sessionLoading) return;
+    if (!session) {
+      setLoading(false);
+      return;
+    }
+    Promise.all([getProfile(), getCheckIn()])
+      .then(([profileRes, checkInRes]) => {
+        if (profileRes.profile) {
+          setProfile({
+            name: profileRes.profile.name,
+            becoming: profileRes.profile.becoming,
+            primary_standard: profileRes.profile.primary_standard,
+          });
+        }
+        if (checkInRes.checkIn) {
+          const c = checkInRes.checkIn;
+          setLiveState({
+            energy: c.energy,
+            focus: c.focus,
+            recovery: c.recovery,
+            stress: c.stress,
+            mood: c.mood,
+            momentum: seedHumanState.momentum,
+            confidence: seedHumanState.confidence,
+            sleepHours: Number(c.sleep_hours),
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [session, sessionLoading, getProfile, getCheckIn]);
+
+  const humanState = liveState ?? seedHumanState;
 
   return (
     <Shell>
@@ -64,10 +131,10 @@ function Home() {
           </div>
           <h1 className="mt-2 font-display text-4xl md:text-5xl">
             {greeting()},{" "}
-            <span className="text-primary">{identity.name}</span>.
+            <span className="text-primary">{profile.name}</span>.
           </h1>
           <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-            You are becoming {identity.becoming.toLowerCase()}. Today's operating
+            You are becoming {profile.becoming.toLowerCase()}. Today's operating
             plan is calibrated to your current state.
           </p>
         </div>
@@ -75,10 +142,10 @@ function Home() {
         <div className="flex items-center gap-6 rounded-xl border hairline bg-surface px-5 py-4">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <StateRing value={overall()} size={64} stroke={5} />
+              <StateRing value={overall(humanState)} size={64} stroke={5} />
               <div className="absolute inset-0 grid place-items-center">
                 <div className="font-display text-lg leading-none">
-                  {overall()}
+                  {overall(humanState)}
                 </div>
               </div>
             </div>
@@ -92,9 +159,43 @@ function Home() {
         </div>
       </header>
 
+      {!sessionLoading && !session && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border hairline bg-primary/5 px-4 py-3 text-sm">
+          <span className="text-foreground/90">
+            Sign in to load your profile and see live check-ins on the Home page.
+          </span>
+          <Link
+            to="/auth"
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+          >
+            Sign in
+          </Link>
+        </div>
+      )}
+
+      {session && !sessionLoading && !loading && !liveState && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border hairline bg-primary/5 px-4 py-3 text-sm">
+          <span className="text-foreground/90">
+            No check-in yet today. Tell the Kernel how you are.
+          </span>
+          <Link
+            to="/check-in"
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+          >
+            Check in
+          </Link>
+        </div>
+      )}
+
+      {loading && session && (
+        <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading your operating state…
+        </div>
+      )}
+
       {/* Advisor */}
       <div className="mt-10">
-        <Advisor />
+        <Advisor state={humanState} />
       </div>
 
       {/* Human State grid */}
@@ -145,7 +246,7 @@ function Home() {
             }
           />
           <ol className="mt-5 space-y-0">
-            {todaysPlan.map((row, i) => (
+            {todaysPlan.map((row) => (
               <li
                 key={row.time}
                 className="grid grid-cols-[64px_1fr_auto] items-center gap-4 border-t hairline py-3.5 first:border-t-0 first:pt-0"
@@ -270,8 +371,7 @@ function Home() {
   );
 }
 
-function overall() {
-  const s = humanState;
+function overall(s: HumanState) {
   const positive = (s.energy + s.focus + s.recovery + s.mood + s.momentum + s.confidence) / 6;
   const stressPenalty = s.stress * 0.15;
   return Math.round(Math.max(0, Math.min(100, positive - stressPenalty)));

@@ -42,6 +42,7 @@ const ProfileUpdate = z.object({
   name: z.string().min(1).max(80).optional(),
   becoming: z.string().min(1).max(240).optional(),
   primary_standard: z.string().min(1).max(240).optional(),
+  identity_statements: z.array(z.string().min(1).max(240)).max(20).optional(),
 });
 
 export const updateMyProfile = createServerFn({ method: "POST" })

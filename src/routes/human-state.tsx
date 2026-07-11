@@ -106,12 +106,19 @@ function HumanStatePage() {
 
       {/* Timeline */}
       <section className="mt-10 rounded-2xl border hairline bg-surface p-6">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-          Today, hour by hour
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              {live ? "Your last 7 check-ins" : "Today, hour by hour"}
+            </div>
+            <h2 className="mt-1 font-display text-xl">
+              Where your operating condition moves
+            </h2>
+          </div>
+          <span className="rounded-full border hairline px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            {live ? "Live" : "Sample"}
+          </span>
         </div>
-        <h2 className="mt-1 font-display text-xl">
-          Where your operating condition moves
-        </h2>
 
         <div className="mt-8 grid grid-cols-7 gap-3">
           {timeline.map((t) => (

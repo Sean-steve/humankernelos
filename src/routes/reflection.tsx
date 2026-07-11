@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Moon, Loader2 } from "lucide-react";
@@ -7,6 +7,7 @@ import { Shell } from "@/components/hos/Shell";
 import { PageHeader } from "@/components/hos/PageHeader";
 import { reflectionPrompts } from "@/lib/hos-extras";
 import { submitReflection } from "@/lib/reflection.functions";
+import { listRecentReflections } from "@/lib/history.functions";
 import { useSession } from "@/hooks/use-session";
 
 export const Route = createFileRoute("/reflection")({

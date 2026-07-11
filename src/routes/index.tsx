@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowUpRight, Circle } from "lucide-react";
 import { Shell } from "@/components/hos/Shell";

@@ -114,7 +114,7 @@ function HumanStatePage() {
         </h2>
 
         <div className="mt-8 grid grid-cols-7 gap-3">
-          {humanStateTimeline.map((t) => (
+          {timeline.map((t) => (
             <div key={t.label} className="flex flex-col items-center gap-2">
               <div className="flex h-40 w-full items-end gap-1">
                 <Bar value={t.energy} max={max} color="var(--color-primary)" />

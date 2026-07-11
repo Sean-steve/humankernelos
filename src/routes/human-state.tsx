@@ -1,9 +1,13 @@
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { Shell } from "@/components/hos/Shell";
 import { PageHeader } from "@/components/hos/PageHeader";
 import { StateRing } from "@/components/hos/StateRing";
 import { humanState, stateCards } from "@/lib/hos-data";
-import { humanStateTimeline, stateNarratives } from "@/lib/hos-extras";
+import { humanStateTimeline as seedTimeline, stateNarratives } from "@/lib/hos-extras";
+import { listRecentCheckIns } from "@/lib/history.functions";
+import { useSession } from "@/hooks/use-session";
 
 export const Route = createFileRoute("/human-state")({
   head: () => ({

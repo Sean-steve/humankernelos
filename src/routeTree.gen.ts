@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StandardsRouteImport } from './routes/standards'
 import { Route as SignalsRouteImport } from './routes/signals'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReflectionRouteImport } from './routes/reflection'
 import { Route as ProtocolsRouteImport } from './routes/protocols'
 import { Route as HumanStateRouteImport } from './routes/human-state'
@@ -28,6 +29,11 @@ const StandardsRoute = StandardsRouteImport.update({
 const SignalsRoute = SignalsRouteImport.update({
   id: '/signals',
   path: '/signals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReflectionRoute = ReflectionRouteImport.update({
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/human-state': typeof HumanStateRoute
   '/protocols': typeof ProtocolsRoute
   '/reflection': typeof ReflectionRoute
+  '/settings': typeof SettingsRoute
   '/signals': typeof SignalsRoute
   '/standards': typeof StandardsRoute
 }
@@ -92,6 +99,7 @@ export interface FileRoutesByTo {
   '/human-state': typeof HumanStateRoute
   '/protocols': typeof ProtocolsRoute
   '/reflection': typeof ReflectionRoute
+  '/settings': typeof SettingsRoute
   '/signals': typeof SignalsRoute
   '/standards': typeof StandardsRoute
 }
@@ -105,6 +113,7 @@ export interface FileRoutesById {
   '/human-state': typeof HumanStateRoute
   '/protocols': typeof ProtocolsRoute
   '/reflection': typeof ReflectionRoute
+  '/settings': typeof SettingsRoute
   '/signals': typeof SignalsRoute
   '/standards': typeof StandardsRoute
 }
@@ -119,6 +128,7 @@ export interface FileRouteTypes {
     | '/human-state'
     | '/protocols'
     | '/reflection'
+    | '/settings'
     | '/signals'
     | '/standards'
   fileRoutesByTo: FileRoutesByTo
@@ -131,6 +141,7 @@ export interface FileRouteTypes {
     | '/human-state'
     | '/protocols'
     | '/reflection'
+    | '/settings'
     | '/signals'
     | '/standards'
   id:
@@ -143,6 +154,7 @@ export interface FileRouteTypes {
     | '/human-state'
     | '/protocols'
     | '/reflection'
+    | '/settings'
     | '/signals'
     | '/standards'
   fileRoutesById: FileRoutesById
@@ -156,6 +168,7 @@ export interface RootRouteChildren {
   HumanStateRoute: typeof HumanStateRoute
   ProtocolsRoute: typeof ProtocolsRoute
   ReflectionRoute: typeof ReflectionRoute
+  SettingsRoute: typeof SettingsRoute
   SignalsRoute: typeof SignalsRoute
   StandardsRoute: typeof StandardsRoute
 }
@@ -174,6 +187,13 @@ declare module '@tanstack/react-router' {
       path: '/signals'
       fullPath: '/signals'
       preLoaderRoute: typeof SignalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reflection': {
@@ -244,9 +264,20 @@ const rootRouteChildren: RootRouteChildren = {
   HumanStateRoute: HumanStateRoute,
   ProtocolsRoute: ProtocolsRoute,
   ReflectionRoute: ReflectionRoute,
+  SettingsRoute: SettingsRoute,
   SignalsRoute: SignalsRoute,
   StandardsRoute: StandardsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

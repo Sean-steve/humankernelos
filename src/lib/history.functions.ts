@@ -14,6 +14,19 @@ export const listRecentCheckIns = createServerFn({ method: "GET" })
     return { checkIns: data ?? [] };
   });
 
+export const getLatestCheckIn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("check_ins")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return { checkIn: data };
+  });
+
 export const listRecentReflections = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -42,6 +55,7 @@ const ProfileUpdate = z.object({
   name: z.string().min(1).max(80).optional(),
   becoming: z.string().min(1).max(240).optional(),
   primary_standard: z.string().min(1).max(240).optional(),
+  identity_statements: z.array(z.string().min(1).max(240)).max(20).optional(),
 });
 
 export const updateMyProfile = createServerFn({ method: "POST" })

@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Sparkles, Loader2, RefreshCw } from "lucide-react";
 import { getAdvisorDirective } from "@/lib/advisor.functions";
-import { humanState } from "@/lib/hos-data";
+import { humanState as seedHumanState } from "@/lib/hos-data";
+import type { HumanState } from "@/routes/index";
 
 function parseDirective(raw: string) {
   const get = (key: string) => {
@@ -16,23 +17,25 @@ function parseDirective(raw: string) {
   };
 }
 
-export function Advisor() {
+export function Advisor({ state }: { state?: HumanState }) {
   const call = useServerFn(getAdvisorDirective);
-  const [state, setState] = useState<{
+  const [localState, setLocalState] = useState<{
     loading: boolean;
     error?: string;
     data?: ReturnType<typeof parseDirective>;
   }>({ loading: false });
 
+  const humanState = state ?? seedHumanState;
+
   async function run() {
-    setState({ loading: true });
+    setLocalState({ loading: true });
     try {
       const res = await call({ data: { humanState } });
       const parsed = parseDirective(res.text);
-      setState({ loading: false, data: parsed });
+      setLocalState({ loading: false, data: parsed });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Advisor unavailable";
-      setState({ loading: false, error: msg });
+      setLocalState({ loading: false, error: msg });
     }
   }
 
@@ -56,45 +59,45 @@ export function Advisor() {
 
         <button
           onClick={run}
-          disabled={state.loading}
+          disabled={localState.loading}
           className="inline-flex items-center gap-2 rounded-md border hairline bg-surface-elevated px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted disabled:opacity-60"
         >
-          {state.loading ? (
+          {localState.loading ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : state.data ? (
+          ) : localState.data ? (
             <RefreshCw className="h-3.5 w-3.5" />
           ) : (
             <Sparkles className="h-3.5 w-3.5 text-primary" />
           )}
-          {state.data ? "Reconsider" : "Ask the advisor"}
+          {localState.data ? "Reconsider" : "Ask the advisor"}
         </button>
       </div>
 
       <div className="relative mt-6 min-h-[110px]">
-        {!state.data && !state.error && !state.loading && (
+        {!localState.data && !localState.error && !localState.loading && (
           <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
             The advisor reads your current human state — energy, recovery, stress,
             sleep — and returns one calm directive for the next window of the day.
           </p>
         )}
 
-        {state.loading && (
+        {localState.loading && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Reading the state…
           </div>
         )}
 
-        {state.error && (
+        {localState.error && (
           <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
-            {state.error}
+            {localState.error}
           </div>
         )}
 
-        {state.data && (
+        {localState.data && (
           <div className="grid gap-4 md:grid-cols-[1.4fr_1fr_1fr]">
-            <Card label="Directive" body={state.data.directive} accent />
-            <Card label="Why" body={state.data.why} />
-            <Card label="Avoid today" body={state.data.avoid} muted />
+            <Card label="Directive" body={localState.data.directive} accent />
+            <Card label="Why" body={localState.data.why} />
+            <Card label="Avoid today" body={localState.data.avoid} muted />
           </div>
         )}
       </div>

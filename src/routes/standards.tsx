@@ -1,9 +1,13 @@
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { Check } from "lucide-react";
 import { Shell } from "@/components/hos/Shell";
 import { PageHeader } from "@/components/hos/PageHeader";
-import { standards, identity } from "@/lib/hos-data";
-import { identityStatements } from "@/lib/hos-extras";
+import { standards, identity as seedIdentity } from "@/lib/hos-data";
+import { identityStatements as defaultStatements } from "@/lib/hos-extras";
+import { getMyProfile } from "@/lib/history.functions";
+import { useSession } from "@/hooks/use-session";
 
 export const Route = createFileRoute("/standards")({
   head: () => ({
@@ -23,6 +27,25 @@ function StandardsPage() {
   const avg = Math.round(
     standards.reduce((s, x) => s + x.adherence, 0) / standards.length,
   );
+  const { session, loading: sessionLoading } = useSession();
+  const getProfile = useServerFn(getMyProfile);
+  const [primaryStandard, setPrimaryStandard] = useState(seedIdentity.primaryStandard);
+  const [identityStatements, setIdentityStatements] = useState<string[]>(defaultStatements);
+
+  useEffect(() => {
+    if (sessionLoading || !session) return;
+    getProfile()
+      .then((res) => {
+        if (res.profile) {
+          setPrimaryStandard(res.profile.primary_standard);
+          const statements = Array.isArray(res.profile.identity_statements)
+            ? (res.profile.identity_statements as string[])
+            : defaultStatements;
+          setIdentityStatements(statements);
+        }
+      })
+      .catch(() => {});
+  }, [session, sessionLoading, getProfile]);
 
   return (
     <Shell>
@@ -38,7 +61,7 @@ function StandardsPage() {
           Primary standard
         </div>
         <p className="mt-3 font-display text-3xl leading-tight text-foreground">
-          "{identity.primaryStandard}"
+          "{primaryStandard}"
         </p>
         <p className="mt-3 text-sm text-muted-foreground">
           Everything else negotiates around this one.

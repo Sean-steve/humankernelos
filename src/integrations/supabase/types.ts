@@ -61,6 +61,7 @@ export type Database = {
           becoming: string
           created_at: string
           id: string
+          identity_statements: Json
           name: string
           primary_standard: string
           updated_at: string
@@ -69,6 +70,7 @@ export type Database = {
           becoming?: string
           created_at?: string
           id: string
+          identity_statements?: Json
           name?: string
           primary_standard?: string
           updated_at?: string
@@ -77,6 +79,7 @@ export type Database = {
           becoming?: string
           created_at?: string
           id?: string
+          identity_statements?: Json
           name?: string
           primary_standard?: string
           updated_at?: string

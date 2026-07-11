@@ -14,6 +14,19 @@ export const listRecentCheckIns = createServerFn({ method: "GET" })
     return { checkIns: data ?? [] };
   });
 
+export const getLatestCheckIn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("check_ins")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return { checkIn: data };
+  });
+
 export const listRecentReflections = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {

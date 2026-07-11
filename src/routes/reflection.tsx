@@ -147,6 +147,36 @@ function ReflectionPage() {
           </ul>
         </aside>
       </section>
+
+      {session && history.length > 0 && (
+        <section className="mt-10">
+          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            Journal · recent entries
+          </div>
+          <h2 className="mt-1 font-display text-xl">The ledger of your reflection</h2>
+          <ul className="mt-5 space-y-3">
+            {history.map((h) => (
+              <li
+                key={h.id}
+                className="rounded-xl border hairline bg-surface p-5"
+              >
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span className="uppercase tracking-[0.14em]">{h.prompt}</span>
+                  <time className="font-mono">
+                    {new Date(h.created_at).toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </time>
+                </div>
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+                  {h.entry}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </Shell>
   );
 }

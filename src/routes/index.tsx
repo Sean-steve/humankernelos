@@ -132,7 +132,7 @@ function Home() {
             {today}
           </div>
           <h1 className="mt-2 font-display text-4xl md:text-5xl">
-            {greeting()},{" "}
+            {hello},{" "}
             <span className="text-primary">{profile.name}</span>.
           </h1>
           <p className="mt-2 max-w-xl text-sm text-muted-foreground">

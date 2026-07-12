@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      body_sessions: {
+        Row: {
+          duration_min: number
+          id: string
+          intensity: number
+          kind: string
+          note: string | null
+          occurred_at: string
+          user_id: string
+        }
+        Insert: {
+          duration_min?: number
+          id?: string
+          intensity?: number
+          kind: string
+          note?: string | null
+          occurred_at?: string
+          user_id: string
+        }
+        Update: {
+          duration_min?: number
+          id?: string
+          intensity?: number
+          kind?: string
+          note?: string | null
+          occurred_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       check_ins: {
         Row: {
           created_at: string
@@ -53,6 +83,96 @@ export type Database = {
           sleep_hours?: number
           stress?: number
           user_id?: string
+        }
+        Relationships: []
+      }
+      engine_signals: {
+        Row: {
+          engine: string
+          id: string
+          occurred_at: string
+          signal_key: string
+          user_id: string
+          value_num: number | null
+          value_text: string | null
+        }
+        Insert: {
+          engine: string
+          id?: string
+          occurred_at?: string
+          signal_key: string
+          user_id: string
+          value_num?: number | null
+          value_text?: string | null
+        }
+        Update: {
+          engine?: string
+          id?: string
+          occurred_at?: string
+          signal_key?: string
+          user_id?: string
+          value_num?: number | null
+          value_text?: string | null
+        }
+        Relationships: []
+      }
+      hos_events: {
+        Row: {
+          id: string
+          occurred_at: string
+          payload: Json
+          source_engine: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          occurred_at?: string
+          payload?: Json
+          source_engine: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          occurred_at?: string
+          payload?: Json
+          source_engine?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      nutrition_logs: {
+        Row: {
+          id: string
+          kcal: number
+          meal: string
+          note: string | null
+          occurred_at: string
+          protein_g: number
+          user_id: string
+          water_ml: number
+        }
+        Insert: {
+          id?: string
+          kcal?: number
+          meal: string
+          note?: string | null
+          occurred_at?: string
+          protein_g?: number
+          user_id: string
+          water_ml?: number
+        }
+        Update: {
+          id?: string
+          kcal?: number
+          meal?: string
+          note?: string | null
+          occurred_at?: string
+          protein_g?: number
+          user_id?: string
+          water_ml?: number
         }
         Relationships: []
       }
@@ -106,6 +226,27 @@ export type Database = {
           entry?: string
           id?: string
           prompt?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      routine_completions: {
+        Row: {
+          completed_at: string
+          id: string
+          routine_key: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          id?: string
+          routine_key: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          id?: string
+          routine_key?: string
           user_id?: string
         }
         Relationships: []

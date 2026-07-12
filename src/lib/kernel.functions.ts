@@ -16,7 +16,7 @@ export const publishEvent = createServerFn({ method: "POST" })
       user_id: context.userId,
       type: data.type,
       source_engine: data.source_engine,
-      payload: data.payload,
+      payload: data.payload as never,
     });
     if (error) throw new Error(error.message);
     return { ok: true };

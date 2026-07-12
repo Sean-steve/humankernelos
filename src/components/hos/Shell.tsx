@@ -2,8 +2,10 @@ import { useState, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Activity,
+  Apple,
   CircleGauge,
   Compass,
+  Dumbbell,
   Flame,
   Layers,
   Menu,
@@ -25,10 +27,13 @@ const navItems = [
   { icon: CircleGauge, label: "Human State", to: "/human-state" },
   { icon: Compass, label: "Standards", to: "/standards" },
   { icon: Workflow, label: "Protocols", to: "/protocols" },
+  { icon: Apple, label: "Nutrition", to: "/nutrition" },
+  { icon: Dumbbell, label: "Body", to: "/body" },
   { icon: Flame, label: "Achievements", to: "/achievements" },
   { icon: Layers, label: "Engines", to: "/engines" },
   { icon: Activity, label: "Signals", to: "/signals" },
   { icon: Moon, label: "Reflection", to: "/reflection" },
+  { icon: Settings, label: "Settings", to: "/settings" },
 ] as const;
 
 export function Shell({ children }: { children: ReactNode }) {

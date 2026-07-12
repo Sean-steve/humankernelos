@@ -5,8 +5,8 @@ import { ArrowUpRight, Circle, Loader2 } from "lucide-react";
 import { Shell } from "@/components/hos/Shell";
 import { StateRing } from "@/components/hos/StateRing";
 import { Advisor } from "@/components/hos/Advisor";
-import { getMyProfile } from "@/lib/history.functions";
-import { getLatestCheckIn } from "@/lib/history.functions";
+import { getMyProfile, getLatestCheckIn } from "@/lib/history.functions";
+import { getLatestSignals } from "@/lib/kernel.functions";
 import { useSession } from "@/hooks/use-session";
 import {
   achievements,
@@ -72,10 +72,12 @@ function Home() {
     primary_standard: seedIdentity.primaryStandard,
   });
   const [liveState, setLiveState] = useState<HumanState | null>(null);
+  const [liveSignals, setLiveSignals] = useState<{ key: string; value: number | null; text: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const { session, loading: sessionLoading } = useSession();
   const getProfile = useServerFn(getMyProfile);
   const getCheckIn = useServerFn(getLatestCheckIn);
+  const getSignals = useServerFn(getLatestSignals);
 
   useEffect(() => {
     setToday(
@@ -94,8 +96,8 @@ function Home() {
       setLoading(false);
       return;
     }
-    Promise.all([getProfile(), getCheckIn()])
-      .then(([profileRes, checkInRes]) => {
+    Promise.all([getProfile(), getCheckIn(), getSignals()])
+      .then(([profileRes, checkInRes, signalsRes]) => {
         if (profileRes.profile) {
           setProfile({
             name: profileRes.profile.name,
@@ -116,10 +118,17 @@ function Home() {
             sleepHours: Number(c.sleep_hours),
           });
         }
+        setLiveSignals(
+          signalsRes.signals.map((s) => ({
+            key: s.signal_key,
+            value: s.value_num,
+            text: s.value_text,
+          })),
+        );
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [session, sessionLoading, getProfile, getCheckIn]);
+  }, [session, sessionLoading, getProfile, getCheckIn, getSignals]);
 
   const humanState = liveState ?? seedHumanState;
 
@@ -310,7 +319,24 @@ function Home() {
               title="The ecosystem, summarized"
             />
             <ul className="mt-4 space-y-2.5">
-              {signals.map((sig) => (
+              {liveSignals.length > 0 &&
+                liveSignals.map((s) => (
+                  <li
+                    key={s.key}
+                    className="flex items-center justify-between rounded-md bg-background/40 px-3 py-2"
+                  >
+                    <div>
+                      <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                        {s.key.split(".")[0]}
+                      </div>
+                      <div className="text-sm">{s.key.split(".").slice(1).join(".")}</div>
+                    </div>
+                    <div className="font-mono text-xs text-foreground/90">
+                      {s.value ?? s.text ?? "—"}
+                    </div>
+                  </li>
+                ))}
+              {liveSignals.length === 0 && signals.map((sig) => (
                 <li
                   key={sig.label}
                   className="flex items-center justify-between rounded-md bg-background/40 px-3 py-2"

@@ -14,9 +14,11 @@ import { Route as SignalsRouteImport } from './routes/signals'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReflectionRouteImport } from './routes/reflection'
 import { Route as ProtocolsRouteImport } from './routes/protocols'
+import { Route as NutritionRouteImport } from './routes/nutrition'
 import { Route as HumanStateRouteImport } from './routes/human-state'
 import { Route as EnginesRouteImport } from './routes/engines'
 import { Route as CheckInRouteImport } from './routes/check-in'
+import { Route as BodyRouteImport } from './routes/body'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AchievementsRouteImport } from './routes/achievements'
 import { Route as IndexRouteImport } from './routes/index'
@@ -46,6 +48,11 @@ const ProtocolsRoute = ProtocolsRouteImport.update({
   path: '/protocols',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NutritionRoute = NutritionRouteImport.update({
+  id: '/nutrition',
+  path: '/nutrition',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HumanStateRoute = HumanStateRouteImport.update({
   id: '/human-state',
   path: '/human-state',
@@ -59,6 +66,11 @@ const EnginesRoute = EnginesRouteImport.update({
 const CheckInRoute = CheckInRouteImport.update({
   id: '/check-in',
   path: '/check-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BodyRoute = BodyRouteImport.update({
+  id: '/body',
+  path: '/body',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -81,9 +93,11 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/achievements': typeof AchievementsRoute
   '/auth': typeof AuthRoute
+  '/body': typeof BodyRoute
   '/check-in': typeof CheckInRoute
   '/engines': typeof EnginesRoute
   '/human-state': typeof HumanStateRoute
+  '/nutrition': typeof NutritionRoute
   '/protocols': typeof ProtocolsRoute
   '/reflection': typeof ReflectionRoute
   '/settings': typeof SettingsRoute
@@ -94,9 +108,11 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/achievements': typeof AchievementsRoute
   '/auth': typeof AuthRoute
+  '/body': typeof BodyRoute
   '/check-in': typeof CheckInRoute
   '/engines': typeof EnginesRoute
   '/human-state': typeof HumanStateRoute
+  '/nutrition': typeof NutritionRoute
   '/protocols': typeof ProtocolsRoute
   '/reflection': typeof ReflectionRoute
   '/settings': typeof SettingsRoute
@@ -108,9 +124,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/achievements': typeof AchievementsRoute
   '/auth': typeof AuthRoute
+  '/body': typeof BodyRoute
   '/check-in': typeof CheckInRoute
   '/engines': typeof EnginesRoute
   '/human-state': typeof HumanStateRoute
+  '/nutrition': typeof NutritionRoute
   '/protocols': typeof ProtocolsRoute
   '/reflection': typeof ReflectionRoute
   '/settings': typeof SettingsRoute
@@ -123,9 +141,11 @@ export interface FileRouteTypes {
     | '/'
     | '/achievements'
     | '/auth'
+    | '/body'
     | '/check-in'
     | '/engines'
     | '/human-state'
+    | '/nutrition'
     | '/protocols'
     | '/reflection'
     | '/settings'
@@ -136,9 +156,11 @@ export interface FileRouteTypes {
     | '/'
     | '/achievements'
     | '/auth'
+    | '/body'
     | '/check-in'
     | '/engines'
     | '/human-state'
+    | '/nutrition'
     | '/protocols'
     | '/reflection'
     | '/settings'
@@ -149,9 +171,11 @@ export interface FileRouteTypes {
     | '/'
     | '/achievements'
     | '/auth'
+    | '/body'
     | '/check-in'
     | '/engines'
     | '/human-state'
+    | '/nutrition'
     | '/protocols'
     | '/reflection'
     | '/settings'
@@ -163,9 +187,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AchievementsRoute: typeof AchievementsRoute
   AuthRoute: typeof AuthRoute
+  BodyRoute: typeof BodyRoute
   CheckInRoute: typeof CheckInRoute
   EnginesRoute: typeof EnginesRoute
   HumanStateRoute: typeof HumanStateRoute
+  NutritionRoute: typeof NutritionRoute
   ProtocolsRoute: typeof ProtocolsRoute
   ReflectionRoute: typeof ReflectionRoute
   SettingsRoute: typeof SettingsRoute
@@ -210,6 +236,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtocolsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/nutrition': {
+      id: '/nutrition'
+      path: '/nutrition'
+      fullPath: '/nutrition'
+      preLoaderRoute: typeof NutritionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/human-state': {
       id: '/human-state'
       path: '/human-state'
@@ -229,6 +262,13 @@ declare module '@tanstack/react-router' {
       path: '/check-in'
       fullPath: '/check-in'
       preLoaderRoute: typeof CheckInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/body': {
+      id: '/body'
+      path: '/body'
+      fullPath: '/body'
+      preLoaderRoute: typeof BodyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -259,9 +299,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AchievementsRoute: AchievementsRoute,
   AuthRoute: AuthRoute,
+  BodyRoute: BodyRoute,
   CheckInRoute: CheckInRoute,
   EnginesRoute: EnginesRoute,
   HumanStateRoute: HumanStateRoute,
+  NutritionRoute: NutritionRoute,
   ProtocolsRoute: ProtocolsRoute,
   ReflectionRoute: ReflectionRoute,
   SettingsRoute: SettingsRoute,

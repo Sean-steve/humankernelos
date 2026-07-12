@@ -1,63 +1,93 @@
-# Plan: Polish live data + settings for Human OS v0.1
+# HOS Kernel Audit + Next Milestone
 
-## Where we are now
+## Part A — Audit against `.lovable/plan.md` (v0.1 spec)
 
-The Human OS shell is built and most surfaces exist as real routes:
+Scope note: I'm auditing against `.lovable/plan.md`, which defines v0.1 as Kernel shell + live check-ins/reflections/profile/advisor. The broader "27 engines / event bus / plugin API / multi-OS" spec is explicitly out of scope for v0.1 per that document, so those are recorded as **deferred**, not **missing**.
 
-- 9 routes: Today, Check-in, Human State, Standards, Protocols, Achievements, Engines, Signals, Reflection
-- Authentication works: email/password + Google OAuth, `useSession`, AccountBadge, `/auth`
-- Backend persistence is live via Lovable Cloud:
-  - `profiles`, `check_ins`, `reflections` tables with RLS
-  - Server functions for submitting check-ins and reflections, listing history, and reading/updating the profile
-- AI advisor is wired through the Lovable AI Gateway and the `system`-as-option bug is fixed
-- Human State timeline already loads real `check_ins` when signed in
-- Reflection journal already loads real entries when signed in
+### v0.1 requirements — status
 
-## What is still missing for the initial build
+| # | Requirement | Status | Evidence |
+|---|---|---|---|
+| 1 | Auto-create profile on signup | ✅ | `handle_new_user()` + `on_auth_user_created` trigger in migration `20260711080226_*.sql` |
+| 2 | `identity_statements` JSONB column | ✅ | `profiles.identity_statements` (types.ts, supabase-tables) |
+| 3 | `updateMyProfile` accepts identity_statements | ✅ | `ProfileUpdate` Zod schema in `src/lib/history.functions.ts` |
+| 4 | Home page shows live profile + latest check-in | ✅ | `src/routes/index.tsx` calls `getMyProfile` + `getLatestCheckIn` |
+| 5 | Latest check-in feeds Advisor + human-state grid | ✅ | `Advisor` accepts `state` prop; index passes live state |
+| 6 | "No check-in yet today" prompt | ✅ | index.tsx conditional |
+| 7 | `/settings` route with editable name/becoming/standard/statements | ✅ | `src/routes/settings.tsx` |
+| 8 | Sidebar Settings link | ✅ | `Shell.tsx` |
+| 9 | Standards page reads live profile | ✅ | `src/routes/standards.tsx` |
+| 10 | Advisor system-prompt bug (AI_InvalidPromptError) fixed | ✅ | `advisor.functions.ts` uses `system:` option |
+| 11 | Typecheck clean | ✅ | last `tsgo --noEmit` clean |
+| 12 | Hydration mismatch on greeting | ✅ | client-side `useEffect` in index |
 
-1. **Profile auto-creation on signup** — the `handle_new_user()` function exists but no trigger fires it, so new users may not have a `profiles` row.
-2. **Home page is still mostly static** — it greets "Operator", shows seed human state, and the Advisor reads hardcoded values instead of the latest check-in.
-3. **No settings page** — users cannot edit their name, becoming statement, primary standard, or identity statements.
-4. **Identity statements are hardcoded** — the user wants them editable per user.
-5. **A runtime module-loading error** is reported in the preview and should be investigated.
+**v0.1 certification: ✅ all 12 items pass.**
 
-## What this plan will build
+### Deferred (explicitly out of scope in plan.md)
+- Third-party engines (Body OS, Trading OS, Nutrition, etc.)
+- Standards adherence tracking table
+- Achievements ledger (dynamic)
+- Event bus, plugin API, multi-OS kernel contracts
+- Offline mode
 
-### 1. Database changes
-- Add an `identity_statements` JSONB column to `profiles` so each user can store their own list.
-- Attach the existing `handle_new_user()` function to a trigger on `auth.users` so every signup automatically gets a profile row.
-- Update `updateMyProfile` validation to accept the new `identity_statements` array.
+### Gaps worth surfacing even inside v0.1 scope
+- **G1**: Home page still shows static `humanState` fallback when no check-in exists — grid is seed data, not "empty state".
+- **G2**: `Advisor` fallback still uses seed values instead of prompting for check-in.
+- **G3**: No mobile drawer Settings link (plan item 4 mentions both sidebar and mobile drawer; only sidebar confirmed).
+- **G4**: `identity_statements` in Settings — reorder UX not verified in code.
 
-### 2. Home page becomes live
-- Fetch the user's profile and latest check-in on mount.
-- Use the profile's `name`, `becoming`, and `primary_standard` instead of static seed values.
-- Feed the latest check-in state into the human-state grid and the Advisor so the homepage reflects reality.
-- Show a "No check-in yet today" prompt that links to `/check-in` when appropriate.
+---
 
-### 3. New Settings page (`/settings`)
-- Editable fields: name, becoming statement, primary standard, identity statements (add/remove/reorder).
-- Saves through the existing `updateMyProfile` server function.
-- Simple, calm UI matching the rest of the Kernel.
+## Part B — Next milestone to build
 
-### 4. Navigation
-- Add a "Settings" link in the sidebar near the AccountBadge.
-- Add the same link inside the mobile drawer.
+Per your answer ("Audit + build the next milestone"), the highest-leverage next step is to convert v0.1's monolithic check-in into a **real Kernel foundation**: a typed Engine contract + Event Bus so future OSes plug in without touching the Kernel. Bundle that with the smallest set of real engines that prove the contract.
 
-### 5. Verification
-- Run a typecheck and a preview smoke test.
-- Investigate and resolve the reported dynamic-module runtime error if it still appears.
+### Milestone: "Kernel v0.2 — Engine Contract + First 3 Engines"
 
-## Out of scope for this phase
+**1. Event Bus + Engine Contract (Kernel core)**
+- New table `public.hos_events` — `{ id, user_id, type, source_engine, payload jsonb, occurred_at }` with RLS + GRANTs.
+- New table `public.engine_signals` — normalized summaries an engine emits to the Kernel (`{ user_id, engine, signal_key, value_num, value_text, occurred_at }`). Kernel reads these; it never reads engine-internal tables.
+- Server fns: `publishEvent`, `listEvents`, `getLatestSignals` in `src/lib/kernel.functions.ts`.
+- TypeScript `Engine` interface in `src/lib/engines/contract.ts`: `{ id, name, subscribe(events), computeSignals(userId) }`.
 
-- Real third-party engine integrations (Body OS, Trading OS, etc.) remain static placeholders.
-- Standards adherence tracking remains static; no daily standard-logging table yet.
-- Achievements remain static seed values.
+**2. Nutrition Engine (proof engine #1)**
+- Table `nutrition_logs` (meal, kcal, protein, water_ml, at).
+- `/nutrition` route with log form + today's totals.
+- Emits `MealLogged` event + `nutrition.hydration`, `nutrition.protein_g` signals.
 
-## Deliverables
+**3. Body Engine (proof engine #2)**
+- Table `body_sessions` (kind, duration_min, intensity, at).
+- `/body` route with quick-log form + this-week volume.
+- Emits `WorkoutCompleted` + `body.load_7d`, `body.recovery_debt` signals.
 
-- New `/settings` route
-- Updated `profiles` schema + auto-create trigger
-- Updated server functions
-- Home page reading live profile + latest check-in
-- Sidebar/drawer links to Settings
-- A verified, type-clean build
+**4. Routine Engine (proof engine #3)**
+- Table `routine_completions` (routine_key, completed_at).
+- Attach to existing `/protocols` page — checkboxes persist.
+- Emits `RoutineCompleted` + `routine.streak` signal.
+
+**5. Kernel wiring**
+- Human State grid on `/` reads `engine_signals` (latest per key) in addition to check-in — engines feed the Kernel.
+- Advisor prompt includes latest signals summary.
+- Fix G1–G4 gaps above.
+
+### Out of scope for v0.2 (still deferred)
+- Plugin registry / dynamic engine loading
+- External OS integrations (Trading, Finance)
+- Achievement ledger dynamic tracking
+- Offline mode, PWA
+- The remaining ~24 engines (added one per future milestone)
+
+### Deliverables
+- 4 new tables with RLS + GRANTs (single migration)
+- `src/lib/kernel.functions.ts`, `src/lib/engines/contract.ts`
+- 3 new routes: `/nutrition`, `/body` (attach routine to `/protocols`)
+- Human-state grid + Advisor read live signals
+- Sidebar + mobile drawer Settings link
+- Typecheck clean + Playwright smoke test
+
+### Technical notes
+- All engines are pure `public.*` tables; Kernel reads only `engine_signals`, never engine-internal tables — this is what makes future engines pluggable without modifying Kernel code.
+- All server fns use `requireSupabaseAuth`; RLS scopes every row to `auth.uid()`.
+- Event emission happens in the same server fn transaction as the domain write, using a single `publishEvent` helper.
+
+Approve to proceed with the migration + code for v0.2.

@@ -72,10 +72,12 @@ function Home() {
     primary_standard: seedIdentity.primaryStandard,
   });
   const [liveState, setLiveState] = useState<HumanState | null>(null);
+  const [liveSignals, setLiveSignals] = useState<{ key: string; value: number | null; text: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const { session, loading: sessionLoading } = useSession();
   const getProfile = useServerFn(getMyProfile);
   const getCheckIn = useServerFn(getLatestCheckIn);
+  const getSignals = useServerFn(getLatestSignals);
 
   useEffect(() => {
     setToday(

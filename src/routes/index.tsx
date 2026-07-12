@@ -65,6 +65,7 @@ type Profile = {
 
 function Home() {
   const [today, setToday] = useState<string>("");
+  const [hello, setHello] = useState<string>("Welcome");
   const [profile, setProfile] = useState<Profile>({
     name: seedIdentity.name,
     becoming: seedIdentity.becoming,
@@ -84,6 +85,7 @@ function Home() {
         day: "numeric",
       }),
     );
+    setHello(greeting());
   }, []);
 
   useEffect(() => {

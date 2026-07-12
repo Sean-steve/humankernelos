@@ -319,7 +319,24 @@ function Home() {
               title="The ecosystem, summarized"
             />
             <ul className="mt-4 space-y-2.5">
-              {signals.map((sig) => (
+              {liveSignals.length > 0 &&
+                liveSignals.map((s) => (
+                  <li
+                    key={s.key}
+                    className="flex items-center justify-between rounded-md bg-background/40 px-3 py-2"
+                  >
+                    <div>
+                      <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                        {s.key.split(".")[0]}
+                      </div>
+                      <div className="text-sm">{s.key.split(".").slice(1).join(".")}</div>
+                    </div>
+                    <div className="font-mono text-xs text-foreground/90">
+                      {s.value ?? s.text ?? "—"}
+                    </div>
+                  </li>
+                ))}
+              {liveSignals.length === 0 && signals.map((sig) => (
                 <li
                   key={sig.label}
                   className="flex items-center justify-between rounded-md bg-background/40 px-3 py-2"

@@ -96,8 +96,8 @@ function Home() {
       setLoading(false);
       return;
     }
-    Promise.all([getProfile(), getCheckIn()])
-      .then(([profileRes, checkInRes]) => {
+    Promise.all([getProfile(), getCheckIn(), getSignals()])
+      .then(([profileRes, checkInRes, signalsRes]) => {
         if (profileRes.profile) {
           setProfile({
             name: profileRes.profile.name,
@@ -118,10 +118,17 @@ function Home() {
             sleepHours: Number(c.sleep_hours),
           });
         }
+        setLiveSignals(
+          signalsRes.signals.map((s) => ({
+            key: s.signal_key,
+            value: s.value_num,
+            text: s.value_text,
+          })),
+        );
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [session, sessionLoading, getProfile, getCheckIn]);
+  }, [session, sessionLoading, getProfile, getCheckIn, getSignals]);
 
   const humanState = liveState ?? seedHumanState;
 

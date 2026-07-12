@@ -5,8 +5,8 @@ import { ArrowUpRight, Circle, Loader2 } from "lucide-react";
 import { Shell } from "@/components/hos/Shell";
 import { StateRing } from "@/components/hos/StateRing";
 import { Advisor } from "@/components/hos/Advisor";
-import { getMyProfile } from "@/lib/history.functions";
-import { getLatestCheckIn } from "@/lib/history.functions";
+import { getMyProfile, getLatestCheckIn } from "@/lib/history.functions";
+import { getLatestSignals } from "@/lib/kernel.functions";
 import { useSession } from "@/hooks/use-session";
 import {
   achievements,

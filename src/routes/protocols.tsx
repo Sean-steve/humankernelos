@@ -1,8 +1,12 @@
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Check, Ban } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { Check, Ban, CheckCircle2 } from "lucide-react";
 import { Shell } from "@/components/hos/Shell";
 import { PageHeader } from "@/components/hos/PageHeader";
 import { protocols } from "@/lib/hos-protocols";
+import { useSession } from "@/hooks/use-session";
+import { completeRoutine, listTodayRoutines } from "@/lib/routines.functions";
 
 export const Route = createFileRoute("/protocols")({
   head: () => ({

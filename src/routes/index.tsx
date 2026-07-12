@@ -65,6 +65,7 @@ type Profile = {
 
 function Home() {
   const [today, setToday] = useState<string>("");
+  const [hello, setHello] = useState<string>("Welcome");
   const [profile, setProfile] = useState<Profile>({
     name: seedIdentity.name,
     becoming: seedIdentity.becoming,
@@ -84,6 +85,7 @@ function Home() {
         day: "numeric",
       }),
     );
+    setHello(greeting());
   }, []);
 
   useEffect(() => {
@@ -130,7 +132,7 @@ function Home() {
             {today}
           </div>
           <h1 className="mt-2 font-display text-4xl md:text-5xl">
-            {greeting()},{" "}
+            {hello},{" "}
             <span className="text-primary">{profile.name}</span>.
           </h1>
           <p className="mt-2 max-w-xl text-sm text-muted-foreground">

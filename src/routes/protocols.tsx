@@ -23,6 +23,30 @@ export const Route = createFileRoute("/protocols")({
 });
 
 function ProtocolsPage() {
+  const { session } = useSession();
+  const list = useServerFn(listTodayRoutines);
+  const complete = useServerFn(completeRoutine);
+  const [doneToday, setDoneToday] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!session) return;
+    list()
+      .then((r) => setDoneToday(new Set(r.completed.map((c) => c.routine_key))))
+      .catch(() => {});
+  }, [session, list]);
+
+  async function markDone(slug: string) {
+    if (!session || busy) return;
+    setBusy(slug);
+    try {
+      await complete({ data: { routine_key: slug } });
+      setDoneToday((prev) => new Set(prev).add(slug));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <Shell>
       <PageHeader
@@ -32,7 +56,9 @@ function ProtocolsPage() {
       />
 
       <section className="mt-10 flex flex-col gap-5">
-        {protocols.map((p) => (
+        {protocols.map((p) => {
+          const done = doneToday.has(p.slug);
+          return (
           <article
             key={p.slug}
             className="rounded-2xl border hairline bg-surface p-6"
@@ -47,11 +73,37 @@ function ProtocolsPage() {
                   {p.purpose}
                 </p>
               </div>
-              <div className="rounded-md border hairline bg-background/50 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
-                <div className="uppercase tracking-[0.14em]">Trigger</div>
-                <div className="mt-1 max-w-[240px] text-foreground/85">
-                  {p.trigger}
+              <div className="flex flex-col items-end gap-2">
+                <div className="rounded-md border hairline bg-background/50 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                  <div className="uppercase tracking-[0.14em]">Trigger</div>
+                  <div className="mt-1 max-w-[240px] text-foreground/85">
+                    {p.trigger}
+                  </div>
                 </div>
+                {session && (
+                  <button
+                    onClick={() => markDone(p.slug)}
+                    disabled={done || busy === p.slug}
+                    className={
+                      "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors " +
+                      (done
+                        ? "bg-success/15"
+                        : "bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-60")
+                    }
+                    style={done ? { color: "var(--color-success)" } : undefined}
+                  >
+                    {done ? (
+                      <>
+                        <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        Completed today
+                      </>
+                    ) : busy === p.slug ? (
+                      "Logging…"
+                    ) : (
+                      "Mark done"
+                    )}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -101,7 +153,8 @@ function ProtocolsPage() {
               </div>
             </div>
           </article>
-        ))}
+          );
+        })}
       </section>
     </Shell>
   );

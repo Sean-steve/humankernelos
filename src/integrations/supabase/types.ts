@@ -88,31 +88,106 @@ export type Database = {
       }
       engine_signals: {
         Row: {
+          confidence: number | null
           engine: string
           id: string
+          metadata: Json
           occurred_at: string
+          reliability: number | null
           signal_key: string
+          trend: string | null
           user_id: string
           value_num: number | null
           value_text: string | null
         }
         Insert: {
+          confidence?: number | null
           engine: string
           id?: string
+          metadata?: Json
           occurred_at?: string
+          reliability?: number | null
           signal_key: string
+          trend?: string | null
           user_id: string
           value_num?: number | null
           value_text?: string | null
         }
         Update: {
+          confidence?: number | null
           engine?: string
           id?: string
+          metadata?: Json
           occurred_at?: string
+          reliability?: number | null
           signal_key?: string
+          trend?: string | null
           user_id?: string
           value_num?: number | null
           value_text?: string | null
+        }
+        Relationships: []
+      }
+      engines: {
+        Row: {
+          capabilities: Json
+          data_owned: Json
+          dependencies: Json
+          engine_id: string
+          events_consumed: Json
+          events_published: Json
+          id: string
+          installed_at: string
+          name: string
+          owner: string | null
+          permissions: Json
+          published_signals: Json
+          purpose: string | null
+          required_signals: Json
+          status: string
+          updated_at: string
+          user_id: string
+          version: string
+        }
+        Insert: {
+          capabilities?: Json
+          data_owned?: Json
+          dependencies?: Json
+          engine_id: string
+          events_consumed?: Json
+          events_published?: Json
+          id?: string
+          installed_at?: string
+          name: string
+          owner?: string | null
+          permissions?: Json
+          published_signals?: Json
+          purpose?: string | null
+          required_signals?: Json
+          status?: string
+          updated_at?: string
+          user_id: string
+          version?: string
+        }
+        Update: {
+          capabilities?: Json
+          data_owned?: Json
+          dependencies?: Json
+          engine_id?: string
+          events_consumed?: Json
+          events_published?: Json
+          id?: string
+          installed_at?: string
+          name?: string
+          owner?: string | null
+          permissions?: Json
+          published_signals?: Json
+          purpose?: string | null
+          required_signals?: Json
+          status?: string
+          updated_at?: string
+          user_id?: string
+          version?: string
         }
         Relationships: []
       }

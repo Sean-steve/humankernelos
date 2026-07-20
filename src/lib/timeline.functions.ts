@@ -83,7 +83,8 @@ export const getTimeline = createServerFn({ method: "GET" })
         kind: "recommendation",
         title: r.title,
         detail: r.body,
-        meta: { status: r.status, confidence: r.confidence },
+        status: r.status,
+        confidence: r.confidence,
       });
     }
     for (const r of signals.data ?? []) {

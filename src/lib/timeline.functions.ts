@@ -56,7 +56,6 @@ export const getTimeline = createServerFn({ method: "GET" })
         kind: "event",
         title: r.type,
         detail: r.source_engine,
-        });
       });
     }
     for (const r of checkIns.data ?? []) {

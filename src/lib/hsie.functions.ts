@@ -201,7 +201,6 @@ export const computeHumanStateVector = createServerFn({ method: "POST" })
 
     // Upsert today's HSV
     const { error } = await supabase
-      // @ts-expect-error - table not yet in generated types
       .from("human_states")
       .upsert(row, { onConflict: "user_id,as_of" });
     if (error) throw new Error(error.message);
@@ -223,7 +222,6 @@ export const getLatestHSV = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
-      // @ts-expect-error - table not yet in generated types
       .from("human_states")
       .select("*")
       .order("as_of", { ascending: false })

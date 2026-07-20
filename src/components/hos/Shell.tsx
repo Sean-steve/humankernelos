@@ -7,9 +7,11 @@ import {
   Compass,
   Dumbbell,
   Flame,
+  GitBranch,
   Layers,
   Menu,
   Moon,
+  ScrollText,
   Settings,
   Sparkles,
   Sun,
@@ -25,6 +27,8 @@ const navItems = [
   { icon: Sun, label: "Today", to: "/" },
   { icon: ClipboardCheck, label: "Check-in", to: "/check-in" },
   { icon: CircleGauge, label: "Human State", to: "/human-state" },
+  { icon: ScrollText, label: "Policies", to: "/policies" },
+  { icon: GitBranch, label: "Timeline", to: "/timeline" },
   { icon: Compass, label: "Standards", to: "/standards" },
   { icon: Workflow, label: "Protocols", to: "/protocols" },
   { icon: Apple, label: "Nutrition", to: "/nutrition" },
@@ -83,7 +87,7 @@ export function Shell({ children }: { children: ReactNode }) {
                       Human OS
                     </div>
                     <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                      Kernel · v0.1
+                      Kernel · v0.4
                     </div>
                   </div>
                 </Link>
@@ -140,7 +144,7 @@ export function Shell({ children }: { children: ReactNode }) {
                   Human OS
                 </div>
                 <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                  Kernel · v0.1
+                  Kernel · v0.4
                 </div>
               </div>
             </Link>

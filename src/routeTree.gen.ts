@@ -9,11 +9,13 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TimelineRouteImport } from './routes/timeline'
 import { Route as StandardsRouteImport } from './routes/standards'
 import { Route as SignalsRouteImport } from './routes/signals'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReflectionRouteImport } from './routes/reflection'
 import { Route as ProtocolsRouteImport } from './routes/protocols'
+import { Route as PoliciesRouteImport } from './routes/policies'
 import { Route as NutritionRouteImport } from './routes/nutrition'
 import { Route as HumanStateRouteImport } from './routes/human-state'
 import { Route as EnginesRouteImport } from './routes/engines'
@@ -23,6 +25,11 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AchievementsRouteImport } from './routes/achievements'
 import { Route as IndexRouteImport } from './routes/index'
 
+const TimelineRoute = TimelineRouteImport.update({
+  id: '/timeline',
+  path: '/timeline',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StandardsRoute = StandardsRouteImport.update({
   id: '/standards',
   path: '/standards',
@@ -46,6 +53,11 @@ const ReflectionRoute = ReflectionRouteImport.update({
 const ProtocolsRoute = ProtocolsRouteImport.update({
   id: '/protocols',
   path: '/protocols',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PoliciesRoute = PoliciesRouteImport.update({
+  id: '/policies',
+  path: '/policies',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NutritionRoute = NutritionRouteImport.update({
@@ -98,11 +110,13 @@ export interface FileRoutesByFullPath {
   '/engines': typeof EnginesRoute
   '/human-state': typeof HumanStateRoute
   '/nutrition': typeof NutritionRoute
+  '/policies': typeof PoliciesRoute
   '/protocols': typeof ProtocolsRoute
   '/reflection': typeof ReflectionRoute
   '/settings': typeof SettingsRoute
   '/signals': typeof SignalsRoute
   '/standards': typeof StandardsRoute
+  '/timeline': typeof TimelineRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -113,11 +127,13 @@ export interface FileRoutesByTo {
   '/engines': typeof EnginesRoute
   '/human-state': typeof HumanStateRoute
   '/nutrition': typeof NutritionRoute
+  '/policies': typeof PoliciesRoute
   '/protocols': typeof ProtocolsRoute
   '/reflection': typeof ReflectionRoute
   '/settings': typeof SettingsRoute
   '/signals': typeof SignalsRoute
   '/standards': typeof StandardsRoute
+  '/timeline': typeof TimelineRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -129,11 +145,13 @@ export interface FileRoutesById {
   '/engines': typeof EnginesRoute
   '/human-state': typeof HumanStateRoute
   '/nutrition': typeof NutritionRoute
+  '/policies': typeof PoliciesRoute
   '/protocols': typeof ProtocolsRoute
   '/reflection': typeof ReflectionRoute
   '/settings': typeof SettingsRoute
   '/signals': typeof SignalsRoute
   '/standards': typeof StandardsRoute
+  '/timeline': typeof TimelineRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -146,11 +164,13 @@ export interface FileRouteTypes {
     | '/engines'
     | '/human-state'
     | '/nutrition'
+    | '/policies'
     | '/protocols'
     | '/reflection'
     | '/settings'
     | '/signals'
     | '/standards'
+    | '/timeline'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -161,11 +181,13 @@ export interface FileRouteTypes {
     | '/engines'
     | '/human-state'
     | '/nutrition'
+    | '/policies'
     | '/protocols'
     | '/reflection'
     | '/settings'
     | '/signals'
     | '/standards'
+    | '/timeline'
   id:
     | '__root__'
     | '/'
@@ -176,11 +198,13 @@ export interface FileRouteTypes {
     | '/engines'
     | '/human-state'
     | '/nutrition'
+    | '/policies'
     | '/protocols'
     | '/reflection'
     | '/settings'
     | '/signals'
     | '/standards'
+    | '/timeline'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -192,15 +216,24 @@ export interface RootRouteChildren {
   EnginesRoute: typeof EnginesRoute
   HumanStateRoute: typeof HumanStateRoute
   NutritionRoute: typeof NutritionRoute
+  PoliciesRoute: typeof PoliciesRoute
   ProtocolsRoute: typeof ProtocolsRoute
   ReflectionRoute: typeof ReflectionRoute
   SettingsRoute: typeof SettingsRoute
   SignalsRoute: typeof SignalsRoute
   StandardsRoute: typeof StandardsRoute
+  TimelineRoute: typeof TimelineRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/timeline': {
+      id: '/timeline'
+      path: '/timeline'
+      fullPath: '/timeline'
+      preLoaderRoute: typeof TimelineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/standards': {
       id: '/standards'
       path: '/standards'
@@ -234,6 +267,13 @@ declare module '@tanstack/react-router' {
       path: '/protocols'
       fullPath: '/protocols'
       preLoaderRoute: typeof ProtocolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/policies': {
+      id: '/policies'
+      path: '/policies'
+      fullPath: '/policies'
+      preLoaderRoute: typeof PoliciesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/nutrition': {
@@ -304,22 +344,14 @@ const rootRouteChildren: RootRouteChildren = {
   EnginesRoute: EnginesRoute,
   HumanStateRoute: HumanStateRoute,
   NutritionRoute: NutritionRoute,
+  PoliciesRoute: PoliciesRoute,
   ProtocolsRoute: ProtocolsRoute,
   ReflectionRoute: ReflectionRoute,
   SettingsRoute: SettingsRoute,
   SignalsRoute: SignalsRoute,
   StandardsRoute: StandardsRoute,
+  TimelineRoute: TimelineRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

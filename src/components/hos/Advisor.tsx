@@ -1,43 +1,54 @@
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Sparkles, Loader2, RefreshCw } from "lucide-react";
-import { getAdvisorDirective } from "@/lib/advisor.functions";
-import { humanState as seedHumanState } from "@/lib/hos-data";
-import type { HumanState } from "@/routes/index";
+import { Sparkles, Loader2, RefreshCw, Check, X } from "lucide-react";
+import {
+  generateRecommendation,
+  decideRecommendation,
+} from "@/lib/pdie.functions";
 
-function parseDirective(raw: string) {
-  const get = (key: string) => {
-    const m = raw.match(new RegExp(`${key}:\\s*(.+?)(?:\\n|$)`, "i"));
-    return m?.[1]?.trim() ?? "";
-  };
-  return {
-    directive: get("DIRECTIVE"),
-    why: get("WHY"),
-    avoid: get("AVOID"),
-  };
-}
+type Recommendation = {
+  id: string;
+  title: string;
+  body: string;
+  evidence: string[];
+  assumptions: string[];
+  alternatives: string[];
+  risks: string[];
+  confidence: number | null;
+  status: string;
+};
 
-export function Advisor({ state }: { state?: HumanState }) {
-  const call = useServerFn(getAdvisorDirective);
-  const [localState, setLocalState] = useState<{
-    loading: boolean;
-    error?: string;
-    data?: ReturnType<typeof parseDirective>;
-  }>({ loading: false });
-
-  const humanState = state ?? seedHumanState;
+export function Advisor() {
+  const call = useServerFn(generateRecommendation);
+  const decide = useServerFn(decideRecommendation);
+  const [rec, setRec] = useState<Recommendation | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function run() {
-    setLocalState({ loading: true });
+    setLoading(true);
+    setError(null);
     try {
-      const res = await call({ data: { humanState } });
-      const parsed = parseDirective(res.text);
-      setLocalState({ loading: false, data: parsed });
+      const res = await call({ data: { type: "daily" } });
+      setRec(res.recommendation as unknown as Recommendation);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Advisor unavailable";
-      setLocalState({ loading: false, error: msg });
+      setError(e instanceof Error ? e.message : "Advisor unavailable");
+    } finally {
+      setLoading(false);
     }
   }
+
+  async function act(status: "accepted" | "dismissed") {
+    if (!rec) return;
+    try {
+      await decide({ data: { id: rec.id, status } });
+      setRec({ ...rec, status });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const confidencePct = rec?.confidence ? Math.round(rec.confidence * 100) : null;
 
   return (
     <section className="relative overflow-hidden rounded-2xl border hairline bg-surface p-6">
@@ -49,7 +60,7 @@ export function Advisor({ state }: { state?: HumanState }) {
           </div>
           <div>
             <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-              Operating Advisor
+              Personal Decision Intelligence
             </div>
             <div className="font-display text-lg">
               What matters most, right now
@@ -59,45 +70,88 @@ export function Advisor({ state }: { state?: HumanState }) {
 
         <button
           onClick={run}
-          disabled={localState.loading}
-          className="inline-flex items-center gap-2 rounded-md border hairline bg-surface-elevated px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-md border hairline bg-surface-elevated px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-60"
         >
-          {localState.loading ? (
+          {loading ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : localState.data ? (
+          ) : rec ? (
             <RefreshCw className="h-3.5 w-3.5" />
           ) : (
             <Sparkles className="h-3.5 w-3.5 text-primary" />
           )}
-          {localState.data ? "Reconsider" : "Ask the advisor"}
+          {rec ? "Reconsider" : "Ask the advisor"}
         </button>
       </div>
 
       <div className="relative mt-6 min-h-[110px]">
-        {!localState.data && !localState.error && !localState.loading && (
+        {!rec && !error && !loading && (
           <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
-            The advisor reads your current human state — energy, recovery, stress,
-            sleep — and returns one calm directive for the next window of the day.
+            The advisor reads your Human State Vector and active policies, then
+            emits a single explainable recommendation — with evidence, assumptions, alternatives, and risks.
           </p>
         )}
 
-        {localState.loading && (
+        {loading && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Reading the state…
+            <Loader2 className="h-4 w-4 animate-spin" /> Reading the vector…
           </div>
         )}
 
-        {localState.error && (
+        {error && (
           <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
-            {localState.error}
+            {error}
           </div>
         )}
 
-        {localState.data && (
-          <div className="grid gap-4 md:grid-cols-[1.4fr_1fr_1fr]">
-            <Card label="Directive" body={localState.data.directive} accent />
-            <Card label="Why" body={localState.data.why} />
-            <Card label="Avoid today" body={localState.data.avoid} muted />
+        {rec && (
+          <div className="space-y-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="font-display text-xl">{rec.title}</div>
+                <p className="mt-2 max-w-3xl text-sm leading-relaxed text-foreground/90">
+                  {rec.body}
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                  Confidence
+                </div>
+                <div className="mt-1 font-mono text-lg">
+                  {confidencePct !== null ? `${confidencePct}%` : "—"}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+              <Chips label="Evidence" items={rec.evidence} tone="primary" />
+              <Chips label="Assumptions" items={rec.assumptions} />
+              <Chips label="Alternatives" items={rec.alternatives} />
+              <Chips label="Risks" items={rec.risks} tone="warn" />
+            </div>
+
+            <div className="flex items-center gap-2 border-t hairline pt-4">
+              {rec.status === "pending" ? (
+                <>
+                  <button
+                    onClick={() => act("accepted")}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+                  >
+                    <Check className="h-3.5 w-3.5" /> Accept
+                  </button>
+                  <button
+                    onClick={() => act("dismissed")}
+                    className="inline-flex items-center gap-1.5 rounded-md border hairline px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" /> Dismiss
+                  </button>
+                </>
+              ) : (
+                <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                  {rec.status}
+                </span>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -105,35 +159,39 @@ export function Advisor({ state }: { state?: HumanState }) {
   );
 }
 
-function Card({
+function Chips({
   label,
-  body,
-  accent,
-  muted,
+  items,
+  tone,
 }: {
   label: string;
-  body: string;
-  accent?: boolean;
-  muted?: boolean;
+  items: string[];
+  tone?: "primary" | "warn";
 }) {
+  const color =
+    tone === "primary"
+      ? "border-primary/40 text-primary/95"
+      : tone === "warn"
+        ? "border-warning/40 text-warning"
+        : "text-foreground/85";
   return (
-    <div
-      className={
-        "rounded-xl border hairline p-4 " +
-        (accent ? "bg-primary/10" : muted ? "bg-background/40" : "bg-surface-elevated")
-      }
-    >
+    <div className="rounded-xl border hairline bg-surface-elevated p-3">
       <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
         {label}
       </div>
-      <div
-        className={
-          "mt-2 text-sm leading-relaxed " +
-          (accent ? "font-display text-[17px] text-foreground" : "text-foreground/90")
-        }
-      >
-        {body || "—"}
-      </div>
+      <ul className="mt-2 space-y-1.5">
+        {items.length === 0 && (
+          <li className="text-[11px] text-muted-foreground">—</li>
+        )}
+        {items.map((s, i) => (
+          <li
+            key={i}
+            className={`rounded-md border hairline px-2 py-1 text-[11px] leading-snug ${color}`}
+          >
+            {s}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

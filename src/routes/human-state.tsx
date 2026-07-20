@@ -1,13 +1,16 @@
-import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader2, RefreshCw } from "lucide-react";
 import { Shell } from "@/components/hos/Shell";
 import { PageHeader } from "@/components/hos/PageHeader";
 import { StateRing } from "@/components/hos/StateRing";
-import { humanState, stateCards } from "@/lib/hos-data";
-import { humanStateTimeline as seedTimeline, stateNarratives } from "@/lib/hos-extras";
-import { listRecentCheckIns } from "@/lib/history.functions";
-import { useSession } from "@/hooks/use-session";
+import {
+  computeHumanStateVector,
+  getLatestHSV,
+  type HumanStateVector,
+  type StateFamily,
+} from "@/lib/hsie.functions";
 
 export const Route = createFileRoute("/human-state")({
   head: () => ({
@@ -16,179 +19,158 @@ export const Route = createFileRoute("/human-state")({
       {
         name: "description",
         content:
-          "The living read-out of your energy, focus, recovery, stress, mood, and momentum — the signals the Kernel operates on.",
+          "The Human State Vector — physical, cognitive, emotional, behavioral, lifestyle, operational — with confidence and trend on every dimension.",
       },
     ],
   }),
   component: HumanStatePage,
 });
 
-type TimelinePoint = {
-  label: string;
-  energy: number;
-  focus: number;
-  recovery: number;
-  stress: number;
-};
+const FAMILIES: Array<{ key: keyof HumanStateVector; label: string; hint: string }> = [
+  { key: "physical", label: "Physical", hint: "Recovery + training load." },
+  { key: "cognitive", label: "Cognitive", hint: "Focus discounted by stress." },
+  { key: "emotional", label: "Emotional", hint: "Mood + inverse stress." },
+  { key: "behavioral", label: "Behavioral", hint: "Routine adherence + streak." },
+  { key: "lifestyle", label: "Lifestyle", hint: "Nutrition + hydration." },
+  { key: "operational", label: "Operational", hint: "Energy discounted by stress." },
+];
 
 function HumanStatePage() {
-  const max = 100;
-  const { session } = useSession();
-  const call = useServerFn(listRecentCheckIns);
-  const [timeline, setTimeline] = useState<TimelinePoint[]>(seedTimeline);
-  const [live, setLive] = useState(false);
+  const qc = useQueryClient();
+  const get = useServerFn(getLatestHSV);
+  const compute = useServerFn(computeHumanStateVector);
 
-  useEffect(() => {
-    if (!session) {
-      setTimeline(seedTimeline);
-      setLive(false);
-      return;
-    }
-    call()
-      .then((res) => {
-        if (!res.checkIns.length) return;
-        const points: TimelinePoint[] = [...res.checkIns]
-          .reverse()
-          .slice(-7)
-          .map((c) => ({
-            label: new Date(c.created_at).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            energy: c.energy,
-            focus: c.focus,
-            recovery: c.recovery,
-            stress: c.stress,
-          }));
-        setTimeline(points);
-        setLive(true);
-      })
-      .catch(() => {});
-  }, [session, call]);
+  const { data, isLoading } = useQuery({
+    queryKey: ["hsv"],
+    queryFn: () => get(),
+  });
+
+  const recompute = useMutation({
+    mutationFn: () => compute(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["hsv"] }),
+  });
+
+  const hsv = data?.hsv;
 
   return (
     <Shell>
       <PageHeader
         eyebrow="Human state"
-        title="How the system reads you."
-        intro="These are the six core signals the Kernel uses to calibrate every decision — the plan, the advisor, and the load each engine may request from you."
+        title="The Human State Vector."
+        intro="Every dimension carries a value, a confidence, and a set of inputs. The Kernel operates on this vector — never on a single number."
       />
 
-      {/* Six-up */}
-      <section className="mt-10 grid grid-cols-2 gap-3 md:grid-cols-3">
-        {stateCards.map(({ key, label, hint }) => {
-          const value = humanState[key];
-          const inverse = key === "stress";
-          return (
-            <article
-              key={key}
-              className="rounded-2xl border hairline bg-surface p-5"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                    {label}
-                  </div>
-                  <div className="mt-2 font-display text-4xl leading-none">
-                    {value}
-                    <span className="ml-1 text-sm text-muted-foreground">/100</span>
-                  </div>
-                </div>
-                <StateRing value={value} inverse={inverse} size={56} stroke={4} />
-              </div>
-              <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-                {stateNarratives[key] ?? hint}
-              </p>
-            </article>
-          );
-        })}
-      </section>
-
-      {/* Timeline */}
-      <section className="mt-10 rounded-2xl border hairline bg-surface p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-              {live ? "Your last 7 check-ins" : "Today, hour by hour"}
-            </div>
-            <h2 className="mt-1 font-display text-xl">
-              Where your operating condition moves
-            </h2>
+      <section className="mt-8 flex items-center justify-between rounded-2xl border hairline bg-surface p-5">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            Composite
           </div>
-          <span className="rounded-full border hairline px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-            {live ? "Live" : "Sample"}
-          </span>
+          <div className="mt-1 font-display text-4xl">
+            {hsv?.composite ?? "—"}
+            <span className="ml-1 text-sm text-muted-foreground">/100</span>
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {hsv?.as_of ? `As of ${hsv.as_of}` : "Not yet materialized."}
+          </div>
         </div>
-
-        <div className="mt-8 grid grid-cols-7 gap-3">
-          {timeline.map((t) => (
-            <div key={t.label} className="flex flex-col items-center gap-2">
-              <div className="flex h-40 w-full items-end gap-1">
-                <Bar value={t.energy} max={max} color="var(--color-primary)" />
-                <Bar value={t.focus} max={max} color="var(--color-accent)" />
-                <Bar value={t.recovery} max={max} color="var(--color-success)" />
-                <Bar value={t.stress} max={max} color="var(--color-warning)" />
-              </div>
-              <div className="font-mono text-[10px] text-muted-foreground">
-                {t.label}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-6 flex flex-wrap gap-4 text-[11px] text-muted-foreground">
-          <Legend color="var(--color-primary)" label="Energy" />
-          <Legend color="var(--color-accent)" label="Focus" />
-          <Legend color="var(--color-success)" label="Recovery" />
-          <Legend color="var(--color-warning)" label="Stress" />
-        </div>
+        <button
+          onClick={() => recompute.mutate()}
+          disabled={recompute.isPending}
+          className="inline-flex items-center gap-2 rounded-md border hairline bg-surface-elevated px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-60"
+        >
+          {recompute.isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" />
+          )}
+          Recompute HSV
+        </button>
       </section>
 
-      <section className="mt-10 rounded-2xl border hairline bg-surface p-6">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-          Sleep · last night
-        </div>
-        <div className="mt-3 grid gap-6 md:grid-cols-4">
-          <Stat label="Total" value={`${humanState.sleepHours}h`} />
-          <Stat label="Deep" value="1h 42m" />
-          <Stat label="REM" value="1h 28m" />
-          <Stat label="Efficiency" value="92%" />
-        </div>
+      <section className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {isLoading && (
+          <div className="col-span-full flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Reading state…
+          </div>
+        )}
+        {hsv &&
+          FAMILIES.map((f) => {
+            const fam = hsv[f.key] as StateFamily;
+            return <FamilyCard key={f.key} label={f.label} hint={f.hint} family={fam} />;
+          })}
       </section>
     </Shell>
   );
 }
 
-function Bar({ value, max, color }: { value: number; max: number; color: string }) {
-  const pct = Math.max(4, (value / max) * 100);
+function FamilyCard({
+  label,
+  hint,
+  family,
+}: {
+  label: string;
+  hint: string;
+  family: StateFamily;
+}) {
+  const value = family.value;
+  const confidencePct = Math.round((family.confidence ?? 0) * 100);
   return (
-    <div className="relative flex-1 overflow-hidden rounded-sm bg-background/40">
-      <div
-        style={{ height: `${pct}%`, backgroundColor: color, opacity: 0.85 }}
-        className="absolute inset-x-0 bottom-0"
-      />
-    </div>
+    <article className="rounded-2xl border hairline bg-surface p-5">
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+            {label}
+          </div>
+          <div className="mt-2 font-display text-4xl leading-none">
+            {value ?? "—"}
+            {value !== null && (
+              <span className="ml-1 text-sm text-muted-foreground">/100</span>
+            )}
+          </div>
+        </div>
+        {value !== null && <StateRing value={value} size={56} stroke={4} />}
+      </div>
+
+      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+        {family.note ?? hint}
+      </p>
+
+      <div className="mt-4 space-y-2">
+        <MiniBar label="Confidence" pct={confidencePct} />
+        <MiniBar
+          label="Reliability"
+          pct={Math.round((family.reliability ?? 0) * 100)}
+        />
+      </div>
+
+      {family.inputs.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1">
+          {family.inputs.map((i) => (
+            <span
+              key={i}
+              className="rounded-full border hairline px-2 py-0.5 font-mono text-[10px] text-muted-foreground"
+            >
+              {i}
+            </span>
+          ))}
+        </div>
+      )}
+    </article>
   );
 }
 
-function Legend({ color, label }: { color: string; label: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span
-        className="h-2 w-2 rounded-full"
-        style={{ backgroundColor: color }}
-      />
-      {label}
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
+function MiniBar({ label, pct }: { label: string; pct: number }) {
   return (
     <div>
-      <div className="font-display text-2xl">{value}</div>
-      <div className="mt-1 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-        {label}
+      <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+        <span>{label}</span>
+        <span>{pct}%</span>
+      </div>
+      <div className="mt-1 h-1 overflow-hidden rounded-full bg-background/60">
+        <div
+          className="h-full bg-primary"
+          style={{ width: `${pct}%`, opacity: 0.85 }}
+        />
       </div>
     </div>
   );

@@ -206,7 +206,7 @@ function Home() {
 
       {/* Advisor */}
       <div className="mt-10">
-        <Advisor state={humanState} />
+        <Advisor />
       </div>
 
       {/* Human State grid */}

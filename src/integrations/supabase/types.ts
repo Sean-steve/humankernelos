@@ -218,6 +218,48 @@ export type Database = {
         }
         Relationships: []
       }
+      human_states: {
+        Row: {
+          as_of: string
+          behavioral: Json
+          cognitive: Json
+          composite: number | null
+          emotional: Json
+          id: string
+          lifestyle: Json
+          operational: Json
+          physical: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          as_of: string
+          behavioral?: Json
+          cognitive?: Json
+          composite?: number | null
+          emotional?: Json
+          id?: string
+          lifestyle?: Json
+          operational?: Json
+          physical?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          as_of?: string
+          behavioral?: Json
+          cognitive?: Json
+          composite?: number | null
+          emotional?: Json
+          id?: string
+          lifestyle?: Json
+          operational?: Json
+          physical?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       nutrition_logs: {
         Row: {
           id: string
@@ -251,6 +293,45 @@ export type Database = {
         }
         Relationships: []
       }
+      policies: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          priority: number
+          then_action: Json
+          updated_at: string
+          user_id: string
+          when_condition: Json
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          priority?: number
+          then_action?: Json
+          updated_at?: string
+          user_id: string
+          when_condition?: Json
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          priority?: number
+          then_action?: Json
+          updated_at?: string
+          user_id?: string
+          when_condition?: Json
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           becoming: string
@@ -278,6 +359,63 @@ export type Database = {
           name?: string
           primary_standard?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      recommendations: {
+        Row: {
+          alternatives: Json
+          assumptions: Json
+          body: string
+          confidence: number | null
+          created_at: string
+          decided_at: string | null
+          evidence: Json
+          id: string
+          priority: number | null
+          risks: Json
+          state_alignment: number | null
+          status: string
+          title: string
+          type: string
+          urgency: number | null
+          user_id: string
+        }
+        Insert: {
+          alternatives?: Json
+          assumptions?: Json
+          body: string
+          confidence?: number | null
+          created_at?: string
+          decided_at?: string | null
+          evidence?: Json
+          id?: string
+          priority?: number | null
+          risks?: Json
+          state_alignment?: number | null
+          status?: string
+          title: string
+          type?: string
+          urgency?: number | null
+          user_id: string
+        }
+        Update: {
+          alternatives?: Json
+          assumptions?: Json
+          body?: string
+          confidence?: number | null
+          created_at?: string
+          decided_at?: string | null
+          evidence?: Json
+          id?: string
+          priority?: number | null
+          risks?: Json
+          state_alignment?: number | null
+          status?: string
+          title?: string
+          type?: string
+          urgency?: number | null
+          user_id?: string
         }
         Relationships: []
       }

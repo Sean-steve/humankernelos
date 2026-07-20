@@ -10,7 +10,8 @@ export type TimelineItem = {
   kind: "event" | "check_in" | "reflection" | "recommendation" | "signal";
   title: string;
   detail?: string;
-  meta?: Record<string, unknown>;
+  status?: string | null;
+  confidence?: number | null;
 };
 
 export const getTimeline = createServerFn({ method: "GET" })

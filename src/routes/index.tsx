@@ -209,6 +209,12 @@ function Home() {
         <Advisor />
       </div>
 
+      {/* Learning loop — measure open directives */}
+      <div className="mt-6">
+        <FollowUpMeasure />
+      </div>
+
+
       {/* Human State grid */}
       <section className="mt-10">
         <SectionHeader

@@ -6,7 +6,9 @@ export type HosEventType =
   | "WorkoutCompleted"
   | "RoutineCompleted"
   | "CheckInSubmitted"
-  | "ReflectionSaved";
+  | "ReflectionSaved"
+  | "OutcomeMeasured";
+
 
 export type SignalTrend =
   | "improving"

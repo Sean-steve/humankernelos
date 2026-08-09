@@ -3,6 +3,8 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Activity,
   Apple,
+  Brain,
+
   CircleGauge,
   Compass,
   Dumbbell,
@@ -28,7 +30,9 @@ const navItems = [
   { icon: ClipboardCheck, label: "Check-in", to: "/check-in" },
   { icon: CircleGauge, label: "Human State", to: "/human-state" },
   { icon: ScrollText, label: "Policies", to: "/policies" },
+  { icon: Brain, label: "Learning", to: "/learning" },
   { icon: GitBranch, label: "Timeline", to: "/timeline" },
+
   { icon: Compass, label: "Standards", to: "/standards" },
   { icon: Workflow, label: "Protocols", to: "/protocols" },
   { icon: Apple, label: "Nutrition", to: "/nutrition" },

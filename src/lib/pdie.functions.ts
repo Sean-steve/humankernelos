@@ -147,7 +147,11 @@ export const generateRecommendation = createServerFn({ method: "POST" })
           alternatives: ["Manual planning"],
           risks: ["Low signal quality"],
           confidence: 0.2,
+          cost_axes: [],
+          trades_off: false,
+          sustainability_note: "Neutral — a short reset costs nothing long term.",
         };
+
       } else {
         throw error;
       }

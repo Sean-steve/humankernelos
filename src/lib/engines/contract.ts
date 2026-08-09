@@ -6,7 +6,9 @@ export type HosEventType =
   | "WorkoutCompleted"
   | "RoutineCompleted"
   | "CheckInSubmitted"
-  | "ReflectionSaved";
+  | "ReflectionSaved"
+  | "OutcomeMeasured";
+
 
 export type SignalTrend =
   | "improving"
@@ -174,6 +176,27 @@ export const REGISTERED_ENGINES: EngineDescriptor[] = [
     },
   },
   {
+    id: "learning",
+    name: "Learning Loop",
+    version: "0.1.0",
+    purpose:
+      "Measure whether recommendations were executed and what they moved; learn personal patterns.",
+    owner: "HOS Kernel",
+    status: "active",
+    capabilities: ["record_outcome", "derive_patterns", "adherence_tracking"],
+    dataOwned: ["recommendation_outcomes", "learned_patterns"],
+    eventsPublished: ["OutcomeMeasured"],
+    eventsConsumed: [],
+    publishedSignals: ["learning.adherence"],
+    requiredSignals: [],
+    dependencies: ["pdie"],
+    permissions: {
+      dataRequested: ["recommendations", "recommendation_outcomes"],
+      dataProvided: ["adherence", "learned_patterns"],
+      dataProhibited: ["reflections.entry"],
+    },
+  },
+  {
     id: "timeline",
     name: "Timeline Service",
     version: "0.1.0",
@@ -194,4 +217,5 @@ export const REGISTERED_ENGINES: EngineDescriptor[] = [
     },
   },
 ];
+
 

@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Activity, ClipboardCheck, Moon, Sparkles, Zap, Loader2 } from "lucide-react";
 import { Shell } from "@/components/hos/Shell";
 import { PageHeader } from "@/components/hos/PageHeader";
+import { FollowUpMeasure } from "@/components/hos/FollowUpMeasure";
+
 import { getTimeline, type TimelineItem } from "@/lib/timeline.functions";
 
 export const Route = createFileRoute("/timeline")({
@@ -51,6 +53,12 @@ function TimelinePage() {
         title="A coherent narrative of your day."
         intro="Every engine emits into one feed. Nothing lives in isolation — this is what the Kernel actually sees."
       />
+
+      <div className="mt-8">
+        <FollowUpMeasure />
+      </div>
+
+
 
       <section className="mt-8 rounded-2xl border hairline bg-surface p-6">
         {isLoading && (

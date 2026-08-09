@@ -7,6 +7,7 @@ import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+import { outcomeHistoryPrompt, type OutcomeRow, type RecRow } from "./learning.server";
 
 const RecommendationSchema = z.object({
   title: z.string(),
@@ -16,11 +17,17 @@ const RecommendationSchema = z.object({
   alternatives: z.array(z.string()),
   risks: z.array(z.string()),
   confidence: z.number(),
+  cost_axes: z.array(z.string()),
+  trades_off: z.boolean(),
+  sustainability_note: z.string(),
 });
 
 const SYSTEM = `You are the Personal Decision Intelligence Engine inside the Human Operating System.
 You do not chat. You emit a single recommendation as JSON, obeying the Constitution's explainability contract:
 every recommendation must include evidence, assumptions, alternatives considered, and risks.
+
+The Constitution's first principle is Sustainable Human Performance: a recommendation that improves one
+axis while destroying another is a failed optimization. You must state what it costs.
 
 Rules:
 - title: <= 10 words, imperative.
@@ -30,7 +37,12 @@ Rules:
 - alternatives: 1-3 other actions considered and why they were not chosen.
 - risks: 1-3 things that could go wrong if the operator follows this recommendation.
 - confidence: 0.0-1.0, honest.
+- cost_axes: any of physical, cognitive, emotional, behavioral, lifestyle, operational that this may cost. Empty array if none.
+- trades_off: true when the recommendation gains one axis at the measurable expense of another.
+- sustainability_note: one sentence on the long-term effect. Never sacrifice long-term performance for a short-term win.
+- Apply the learned history: prefer directive shapes this operator has actually executed and that measurably helped.
 `;
+
 
 export const generateRecommendation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -48,28 +60,52 @@ export const generateRecommendation = createServerFn({ method: "POST" })
 
     const { supabase, userId } = context;
 
-    // Load HSV, latest check-in, active policies, profile, mission
-    const [{ data: hsvRow }, { data: checkIn }, { data: activePolicies }, { data: profile }] =
-      await Promise.all([
-        supabase
-          .from("human_states")
-          .select("*")
-          .order("as_of", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        supabase
-          .from("check_ins")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        supabase
-          .from("policies")
-          .select("name, description, when_condition, then_action, priority")
-          .eq("active", true)
-          .order("priority", { ascending: true }),
-        supabase.from("profiles").select("name, becoming, primary_standard").maybeSingle(),
-      ]);
+    // Load HSV, latest check-in, active policies, profile, learned history
+    const [
+      { data: hsvRow },
+      { data: checkIn },
+      { data: activePolicies },
+      { data: profile },
+      { data: pastRecs },
+      { data: pastOutcomes },
+      { data: learnedPatterns },
+    ] = await Promise.all([
+      supabase
+        .from("human_states")
+        .select("*")
+        .order("as_of", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("check_ins")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("policies")
+        .select("name, description, when_condition, then_action, priority")
+        .eq("active", true)
+        .order("priority", { ascending: true }),
+      supabase.from("profiles").select("name, becoming, primary_standard").maybeSingle(),
+      supabase
+        .from("recommendations")
+        .select("id, type, title, status, created_at")
+        .order("created_at", { ascending: false })
+        .limit(60),
+      supabase
+        .from("recommendation_outcomes")
+        .select("recommendation_id, executed, effect, friction, measured_at")
+        .order("measured_at", { ascending: false })
+        .limit(30),
+      supabase
+        .from("learned_patterns")
+        .select("label, description, confidence")
+        .eq("active", true)
+        .order("confidence", { ascending: false })
+        .limit(8),
+    ]);
+
 
     const hsvSummary = hsvRow
       ? `HSV as of ${(hsvRow as Record<string, unknown>).as_of}, composite=${(hsvRow as Record<string, unknown>).composite ?? "null"}. ` +
@@ -102,16 +138,31 @@ export const generateRecommendation = createServerFn({ method: "POST" })
       ? `Operator: ${profile.name}. Becoming: ${profile.becoming}. Primary standard: ${profile.primary_standard}.`
       : "Operator identity not yet configured.";
 
+    const historySummary = outcomeHistoryPrompt(
+      (pastRecs ?? []) as unknown as RecRow[],
+      (pastOutcomes ?? []) as unknown as OutcomeRow[],
+    );
+
+    const patternSummary = (learnedPatterns ?? []).length
+      ? "Learned personal patterns:\n" +
+        (learnedPatterns ?? [])
+          .map((p) => `- ${p.label}: ${p.description} (confidence ${p.confidence ?? "?"})`)
+          .join("\n")
+      : "No learned patterns yet.";
+
     const prompt = [
       identitySummary,
       hsvSummary,
       checkInSummary,
       policySummary,
+      historySummary,
+      patternSummary,
       `Recommendation type: ${data.type}.`,
       data.context ? `Additional context: ${data.context}` : "",
     ]
       .filter(Boolean)
       .join("\n\n");
+
 
     const gateway = createLovableAiGatewayProvider(key);
     const model = gateway("google/gemini-3-flash-preview");
@@ -135,7 +186,11 @@ export const generateRecommendation = createServerFn({ method: "POST" })
           alternatives: ["Manual planning"],
           risks: ["Low signal quality"],
           confidence: 0.2,
+          cost_axes: [],
+          trades_off: false,
+          sustainability_note: "Neutral — a short reset costs nothing long term.",
         };
+
       } else {
         throw error;
       }
@@ -158,10 +213,16 @@ export const generateRecommendation = createServerFn({ method: "POST" })
         alternatives: parsed.alternatives as never,
         risks: parsed.risks as never,
         confidence: parsed.confidence,
+        sustainability: {
+          cost_axes: parsed.cost_axes,
+          trades_off: parsed.trades_off,
+          note: parsed.sustainability_note,
+        } as never,
         priority,
         state_alignment: composite ?? null,
         urgency: priority,
         status: "pending",
+
       })
       .select()
       .single();

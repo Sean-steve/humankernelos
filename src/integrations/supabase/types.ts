@@ -260,6 +260,45 @@ export type Database = {
         }
         Relationships: []
       }
+      learned_patterns: {
+        Row: {
+          active: boolean
+          axis: string | null
+          confidence: number | null
+          created_at: string
+          description: string
+          evidence_count: number
+          id: string
+          label: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          axis?: string | null
+          confidence?: number | null
+          created_at?: string
+          description?: string
+          evidence_count?: number
+          id?: string
+          label: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          axis?: string | null
+          confidence?: number | null
+          created_at?: string
+          description?: string
+          evidence_count?: number
+          id?: string
+          label?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       nutrition_logs: {
         Row: {
           id: string
@@ -362,6 +401,53 @@ export type Database = {
         }
         Relationships: []
       }
+      recommendation_outcomes: {
+        Row: {
+          created_at: string
+          effect: Json
+          executed: string
+          friction: string | null
+          id: string
+          measured_at: string
+          note: string | null
+          recommendation_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          effect?: Json
+          executed?: string
+          friction?: string | null
+          id?: string
+          measured_at?: string
+          note?: string | null
+          recommendation_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          effect?: Json
+          executed?: string
+          friction?: string | null
+          id?: string
+          measured_at?: string
+          note?: string | null
+          recommendation_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recommendation_outcomes_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "recommendations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recommendations: {
         Row: {
           alternatives: Json
@@ -376,6 +462,7 @@ export type Database = {
           risks: Json
           state_alignment: number | null
           status: string
+          sustainability: Json
           title: string
           type: string
           urgency: number | null
@@ -394,6 +481,7 @@ export type Database = {
           risks?: Json
           state_alignment?: number | null
           status?: string
+          sustainability?: Json
           title: string
           type?: string
           urgency?: number | null
@@ -412,6 +500,7 @@ export type Database = {
           risks?: Json
           state_alignment?: number | null
           status?: string
+          sustainability?: Json
           title?: string
           type?: string
           urgency?: number | null

@@ -5,6 +5,8 @@ import { ArrowUpRight, Circle, Loader2 } from "lucide-react";
 import { Shell } from "@/components/hos/Shell";
 import { StateRing } from "@/components/hos/StateRing";
 import { Advisor } from "@/components/hos/Advisor";
+import { FollowUpMeasure } from "@/components/hos/FollowUpMeasure";
+
 import { getMyProfile, getLatestCheckIn } from "@/lib/history.functions";
 import { getLatestSignals } from "@/lib/kernel.functions";
 import { useSession } from "@/hooks/use-session";
@@ -208,6 +210,12 @@ function Home() {
       <div className="mt-10">
         <Advisor />
       </div>
+
+      {/* Learning loop — measure open directives */}
+      <div className="mt-6">
+        <FollowUpMeasure />
+      </div>
+
 
       {/* Human State grid */}
       <section className="mt-10">

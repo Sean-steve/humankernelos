@@ -60,28 +60,52 @@ export const generateRecommendation = createServerFn({ method: "POST" })
 
     const { supabase, userId } = context;
 
-    // Load HSV, latest check-in, active policies, profile, mission
-    const [{ data: hsvRow }, { data: checkIn }, { data: activePolicies }, { data: profile }] =
-      await Promise.all([
-        supabase
-          .from("human_states")
-          .select("*")
-          .order("as_of", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        supabase
-          .from("check_ins")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        supabase
-          .from("policies")
-          .select("name, description, when_condition, then_action, priority")
-          .eq("active", true)
-          .order("priority", { ascending: true }),
-        supabase.from("profiles").select("name, becoming, primary_standard").maybeSingle(),
-      ]);
+    // Load HSV, latest check-in, active policies, profile, learned history
+    const [
+      { data: hsvRow },
+      { data: checkIn },
+      { data: activePolicies },
+      { data: profile },
+      { data: pastRecs },
+      { data: pastOutcomes },
+      { data: learnedPatterns },
+    ] = await Promise.all([
+      supabase
+        .from("human_states")
+        .select("*")
+        .order("as_of", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("check_ins")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("policies")
+        .select("name, description, when_condition, then_action, priority")
+        .eq("active", true)
+        .order("priority", { ascending: true }),
+      supabase.from("profiles").select("name, becoming, primary_standard").maybeSingle(),
+      supabase
+        .from("recommendations")
+        .select("id, type, title, status, created_at")
+        .order("created_at", { ascending: false })
+        .limit(60),
+      supabase
+        .from("recommendation_outcomes")
+        .select("recommendation_id, executed, effect, friction, measured_at")
+        .order("measured_at", { ascending: false })
+        .limit(30),
+      supabase
+        .from("learned_patterns")
+        .select("label, description, confidence")
+        .eq("active", true)
+        .order("confidence", { ascending: false })
+        .limit(8),
+    ]);
+
 
     const hsvSummary = hsvRow
       ? `HSV as of ${(hsvRow as Record<string, unknown>).as_of}, composite=${(hsvRow as Record<string, unknown>).composite ?? "null"}. ` +

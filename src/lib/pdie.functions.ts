@@ -138,16 +138,31 @@ export const generateRecommendation = createServerFn({ method: "POST" })
       ? `Operator: ${profile.name}. Becoming: ${profile.becoming}. Primary standard: ${profile.primary_standard}.`
       : "Operator identity not yet configured.";
 
+    const historySummary = outcomeHistoryPrompt(
+      (pastRecs ?? []) as unknown as RecRow[],
+      (pastOutcomes ?? []) as unknown as OutcomeRow[],
+    );
+
+    const patternSummary = (learnedPatterns ?? []).length
+      ? "Learned personal patterns:\n" +
+        (learnedPatterns ?? [])
+          .map((p) => `- ${p.label}: ${p.description} (confidence ${p.confidence ?? "?"})`)
+          .join("\n")
+      : "No learned patterns yet.";
+
     const prompt = [
       identitySummary,
       hsvSummary,
       checkInSummary,
       policySummary,
+      historySummary,
+      patternSummary,
       `Recommendation type: ${data.type}.`,
       data.context ? `Additional context: ${data.context}` : "",
     ]
       .filter(Boolean)
       .join("\n\n");
+
 
     const gateway = createLovableAiGatewayProvider(key);
     const model = gateway("google/gemini-3-flash-preview");

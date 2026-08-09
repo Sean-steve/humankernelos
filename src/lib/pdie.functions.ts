@@ -7,6 +7,7 @@ import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+import { outcomeHistoryPrompt, type OutcomeRow, type RecRow } from "./learning.server";
 
 const RecommendationSchema = z.object({
   title: z.string(),
@@ -16,11 +17,17 @@ const RecommendationSchema = z.object({
   alternatives: z.array(z.string()),
   risks: z.array(z.string()),
   confidence: z.number(),
+  cost_axes: z.array(z.string()),
+  trades_off: z.boolean(),
+  sustainability_note: z.string(),
 });
 
 const SYSTEM = `You are the Personal Decision Intelligence Engine inside the Human Operating System.
 You do not chat. You emit a single recommendation as JSON, obeying the Constitution's explainability contract:
 every recommendation must include evidence, assumptions, alternatives considered, and risks.
+
+The Constitution's first principle is Sustainable Human Performance: a recommendation that improves one
+axis while destroying another is a failed optimization. You must state what it costs.
 
 Rules:
 - title: <= 10 words, imperative.
@@ -30,7 +37,12 @@ Rules:
 - alternatives: 1-3 other actions considered and why they were not chosen.
 - risks: 1-3 things that could go wrong if the operator follows this recommendation.
 - confidence: 0.0-1.0, honest.
+- cost_axes: any of physical, cognitive, emotional, behavioral, lifestyle, operational that this may cost. Empty array if none.
+- trades_off: true when the recommendation gains one axis at the measurable expense of another.
+- sustainability_note: one sentence on the long-term effect. Never sacrifice long-term performance for a short-term win.
+- Apply the learned history: prefer directive shapes this operator has actually executed and that measurably helped.
 `;
+
 
 export const generateRecommendation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

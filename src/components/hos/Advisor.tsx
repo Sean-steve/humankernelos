@@ -138,6 +138,44 @@ export function Advisor() {
               <Chips label="Risks" items={rec.risks} tone="warn" />
             </div>
 
+            {rec.sustainability && (rec.sustainability.note || rec.sustainability.cost_axes?.length) && (
+              <div
+                className={`rounded-xl border p-3 ${
+                  rec.sustainability.trades_off
+                    ? "border-warning/40 bg-warning/5"
+                    : "border-border/60 bg-surface-elevated"
+                }`}
+              >
+                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Sustainability
+                  {rec.sustainability.trades_off && (
+                    <span className="rounded-sm border border-warning/40 px-1.5 py-0.5 text-[9px] text-warning">
+                      Trade-off
+                    </span>
+                  )}
+                </div>
+                {rec.sustainability.note && (
+                  <p className="mt-2 text-[12px] leading-relaxed text-foreground/85">
+                    {rec.sustainability.note}
+                  </p>
+                )}
+                {!!rec.sustainability.cost_axes?.length && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {rec.sustainability.cost_axes.map((a) => (
+                      <span
+                        key={a}
+                        className="rounded-md border hairline px-2 py-0.5 text-[10px] text-muted-foreground"
+                      >
+                        costs {a}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+
+
             <div className="flex items-center gap-2 border-t hairline pt-4">
               {rec.status === "pending" ? (
                 <>

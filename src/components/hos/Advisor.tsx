@@ -6,6 +6,12 @@ import {
   decideRecommendation,
 } from "@/lib/pdie.functions";
 
+type Sustainability = {
+  cost_axes?: string[];
+  trades_off?: boolean;
+  note?: string;
+};
+
 type Recommendation = {
   id: string;
   title: string;
@@ -16,7 +22,9 @@ type Recommendation = {
   risks: string[];
   confidence: number | null;
   status: string;
+  sustainability: Sustainability | null;
 };
+
 
 export function Advisor() {
   const call = useServerFn(generateRecommendation);

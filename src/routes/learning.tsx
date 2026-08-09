@@ -52,7 +52,7 @@ function LearningPage() {
   });
 
   const relearn = useMutation({
-    mutationFn: () => synth({ data: {} }),
+    mutationFn: () => synth(),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["learning-summary"] }),
   });
 
@@ -64,8 +64,9 @@ function LearningPage() {
       <PageHeader
         eyebrow="Article XII"
         title="Learning Loop"
-        description="Observe, recommend, execute, measure, reflect, learn. Nothing here is assumed — every number comes from a directive you actually measured."
+        intro="Observe, recommend, execute, measure, reflect, learn. Nothing here is assumed — every number comes from a directive you actually measured."
       />
+
 
       {!session && (
         <div className="rounded-2xl border hairline bg-surface p-6 text-sm text-muted-foreground">

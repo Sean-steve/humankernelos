@@ -213,10 +213,16 @@ export const generateRecommendation = createServerFn({ method: "POST" })
         alternatives: parsed.alternatives as never,
         risks: parsed.risks as never,
         confidence: parsed.confidence,
+        sustainability: {
+          cost_axes: parsed.cost_axes,
+          trades_off: parsed.trades_off,
+          note: parsed.sustainability_note,
+        } as never,
         priority,
         state_alignment: composite ?? null,
         urgency: priority,
         status: "pending",
+
       })
       .select()
       .single();

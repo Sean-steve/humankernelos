@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Power, Trash2, Loader2 } from "lucide-react";
+import { useSession } from "@/hooks/use-session";
 import { Shell } from "@/components/hos/Shell";
 import { PageHeader } from "@/components/hos/PageHeader";
 import {
@@ -37,6 +38,7 @@ type Policy = {
 };
 
 function PoliciesPage() {
+  const { session } = useSession();
   const qc = useQueryClient();
   const list = useServerFn(listPolicies);
   const upsert = useServerFn(upsertPolicy);
@@ -45,6 +47,7 @@ function PoliciesPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["policies"],
+    enabled: !!session,
     queryFn: () => list(),
   });
 

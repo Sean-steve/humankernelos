@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useSession } from "@/hooks/use-session";
 import { Shell } from "@/components/hos/Shell";
 import { PageHeader } from "@/components/hos/PageHeader";
 import {
@@ -36,6 +37,7 @@ type InstalledEngine = {
 };
 
 function EnginesPage() {
+  const { session } = useSession();
   const qc = useQueryClient();
   const list = useServerFn(listEngines);
   const register = useServerFn(registerEngine);
@@ -43,6 +45,7 @@ function EnginesPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["engines"],
+    enabled: !!session,
     queryFn: () => list(),
   });
 

@@ -15,6 +15,7 @@ import {
   Moon,
   ScrollText,
   Settings,
+  ShieldCheck,
   Sparkles,
   Sun,
   X,

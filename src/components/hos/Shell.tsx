@@ -15,6 +15,7 @@ import {
   Moon,
   ScrollText,
   Settings,
+  ShieldCheck,
   Sparkles,
   Sun,
   X,
@@ -32,6 +33,7 @@ const navItems = [
   { icon: ScrollText, label: "Policies", to: "/policies" },
   { icon: Brain, label: "Learning", to: "/learning" },
   { icon: GitBranch, label: "Timeline", to: "/timeline" },
+  { icon: ShieldCheck, label: "Governance", to: "/governance" },
 
   { icon: Compass, label: "Standards", to: "/standards" },
   { icon: Workflow, label: "Protocols", to: "/protocols" },

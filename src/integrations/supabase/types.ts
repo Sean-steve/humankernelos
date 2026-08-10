@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          detail: Json
+          id: string
+          resource: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          detail?: Json
+          id?: string
+          resource: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          detail?: Json
+          id?: string
+          resource?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       body_sessions: {
         Row: {
           duration_min: number
@@ -82,6 +109,39 @@ export type Database = {
           recovery?: number
           sleep_hours?: number
           stress?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      engine_permissions: {
+        Row: {
+          created_at: string
+          engine_id: string
+          granted: boolean
+          id: string
+          reason: string | null
+          scope: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          engine_id: string
+          granted?: boolean
+          id?: string
+          reason?: string | null
+          scope: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          engine_id?: string
+          granted?: boolean
+          id?: string
+          reason?: string | null
+          scope?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []

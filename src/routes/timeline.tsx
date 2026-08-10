@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, ClipboardCheck, Moon, Sparkles, Zap, Loader2 } from "lucide-react";
+import { useSession } from "@/hooks/use-session";
 import { Shell } from "@/components/hos/Shell";
 import { PageHeader } from "@/components/hos/PageHeader";
 import { FollowUpMeasure } from "@/components/hos/FollowUpMeasure";
@@ -38,9 +39,11 @@ const iconFor = (kind: TimelineItem["kind"]) => {
 };
 
 function TimelinePage() {
+  const { session } = useSession();
   const fetchTimeline = useServerFn(getTimeline);
   const { data, isLoading } = useQuery({
     queryKey: ["timeline"],
+    enabled: !!session,
     queryFn: () => fetchTimeline(),
   });
 

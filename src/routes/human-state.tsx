@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, RefreshCw } from "lucide-react";
+import { useSession } from "@/hooks/use-session";
 import { Shell } from "@/components/hos/Shell";
 import { PageHeader } from "@/components/hos/PageHeader";
 import { StateRing } from "@/components/hos/StateRing";
@@ -36,12 +37,14 @@ const FAMILIES: Array<{ key: keyof HumanStateVector; label: string; hint: string
 ];
 
 function HumanStatePage() {
+  const { session } = useSession();
   const qc = useQueryClient();
   const get = useServerFn(getLatestHSV);
   const compute = useServerFn(computeHumanStateVector);
 
   const { data, isLoading } = useQuery({
     queryKey: ["hsv"],
+    enabled: !!session,
     queryFn: () => get(),
   });
 

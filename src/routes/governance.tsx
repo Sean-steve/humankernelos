@@ -82,7 +82,7 @@ function GovernancePage() {
       <PageHeader
         eyebrow="Constitution · Art. VI & XIV"
         title="Governance"
-        subtitle="Nothing is read without your consent. Every governance decision is written to an append-only audit trail."
+        intro="Nothing is read without your consent. Every governance decision is written to an append-only audit trail."
       />
 
       {!session && (

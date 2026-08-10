@@ -19,6 +19,7 @@ import { Route as PoliciesRouteImport } from './routes/policies'
 import { Route as NutritionRouteImport } from './routes/nutrition'
 import { Route as LearningRouteImport } from './routes/learning'
 import { Route as HumanStateRouteImport } from './routes/human-state'
+import { Route as GovernanceRouteImport } from './routes/governance'
 import { Route as EnginesRouteImport } from './routes/engines'
 import { Route as CheckInRouteImport } from './routes/check-in'
 import { Route as BodyRouteImport } from './routes/body'
@@ -76,6 +77,11 @@ const HumanStateRoute = HumanStateRouteImport.update({
   path: '/human-state',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GovernanceRoute = GovernanceRouteImport.update({
+  id: '/governance',
+  path: '/governance',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EnginesRoute = EnginesRouteImport.update({
   id: '/engines',
   path: '/engines',
@@ -114,6 +120,7 @@ export interface FileRoutesByFullPath {
   '/body': typeof BodyRoute
   '/check-in': typeof CheckInRoute
   '/engines': typeof EnginesRoute
+  '/governance': typeof GovernanceRoute
   '/human-state': typeof HumanStateRoute
   '/learning': typeof LearningRoute
   '/nutrition': typeof NutritionRoute
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/body': typeof BodyRoute
   '/check-in': typeof CheckInRoute
   '/engines': typeof EnginesRoute
+  '/governance': typeof GovernanceRoute
   '/human-state': typeof HumanStateRoute
   '/learning': typeof LearningRoute
   '/nutrition': typeof NutritionRoute
@@ -151,6 +159,7 @@ export interface FileRoutesById {
   '/body': typeof BodyRoute
   '/check-in': typeof CheckInRoute
   '/engines': typeof EnginesRoute
+  '/governance': typeof GovernanceRoute
   '/human-state': typeof HumanStateRoute
   '/learning': typeof LearningRoute
   '/nutrition': typeof NutritionRoute
@@ -171,6 +180,7 @@ export interface FileRouteTypes {
     | '/body'
     | '/check-in'
     | '/engines'
+    | '/governance'
     | '/human-state'
     | '/learning'
     | '/nutrition'
@@ -189,6 +199,7 @@ export interface FileRouteTypes {
     | '/body'
     | '/check-in'
     | '/engines'
+    | '/governance'
     | '/human-state'
     | '/learning'
     | '/nutrition'
@@ -207,6 +218,7 @@ export interface FileRouteTypes {
     | '/body'
     | '/check-in'
     | '/engines'
+    | '/governance'
     | '/human-state'
     | '/learning'
     | '/nutrition'
@@ -226,6 +238,7 @@ export interface RootRouteChildren {
   BodyRoute: typeof BodyRoute
   CheckInRoute: typeof CheckInRoute
   EnginesRoute: typeof EnginesRoute
+  GovernanceRoute: typeof GovernanceRoute
   HumanStateRoute: typeof HumanStateRoute
   LearningRoute: typeof LearningRoute
   NutritionRoute: typeof NutritionRoute
@@ -310,6 +323,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HumanStateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/governance': {
+      id: '/governance'
+      path: '/governance'
+      fullPath: '/governance'
+      preLoaderRoute: typeof GovernanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/engines': {
       id: '/engines'
       path: '/engines'
@@ -362,6 +382,7 @@ const rootRouteChildren: RootRouteChildren = {
   BodyRoute: BodyRoute,
   CheckInRoute: CheckInRoute,
   EnginesRoute: EnginesRoute,
+  GovernanceRoute: GovernanceRoute,
   HumanStateRoute: HumanStateRoute,
   LearningRoute: LearningRoute,
   NutritionRoute: NutritionRoute,
@@ -376,13 +397,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

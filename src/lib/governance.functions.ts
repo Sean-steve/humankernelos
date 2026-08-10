@@ -32,7 +32,7 @@ export const getGovernance = createServerFn({ method: "GET" })
         id: a.id as string,
         action: a.action as string,
         resource: a.resource as string,
-        detail: a.detail as Record<string, unknown>,
+        detail: JSON.stringify(a.detail ?? {}),
         created_at: a.created_at as string,
       })),
     };
@@ -82,7 +82,6 @@ export const exportMyData = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
 
     const tables = [
-      "profiles",
       "check_ins",
       "reflections",
       "human_states",
@@ -99,12 +98,11 @@ export const exportMyData = createServerFn({ method: "POST" })
       "routine_completions",
     ] as const;
 
-    const bundle: Record<string, unknown[]> = {};
+    const bundle: Record<string, unknown> = {};
+    const { data: profile } = await supabase.from("profiles").select("*").eq("id", userId);
+    bundle["profiles"] = profile ?? [];
     for (const table of tables) {
-      const query = supabase.from(table).select("*");
-      const { data } = await (table === "profiles"
-        ? query.eq("id", userId)
-        : query.eq("user_id", userId));
+      const { data } = await supabase.from(table).select("*").eq("user_id", userId);
       bundle[table] = data ?? [];
     }
 
@@ -112,12 +110,12 @@ export const exportMyData = createServerFn({ method: "POST" })
       user_id: userId,
       action: "data.exported",
       resource: "full_bundle",
-      detail: { tables: tables.length } as never,
+      detail: { tables: tables.length + 1 } as never,
     });
 
     return {
       exported_at: new Date().toISOString(),
       user_id: userId,
-      data: bundle,
+      json: JSON.stringify(bundle, null, 2),
     };
   });

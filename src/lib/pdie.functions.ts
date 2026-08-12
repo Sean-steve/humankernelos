@@ -48,6 +48,8 @@ Rules:
 - trades_off: true when the recommendation gains one axis at the measurable expense of another.
 - sustainability_note: one sentence on the long-term effect. Never sacrifice long-term performance for a short-term win.
 - Apply the learned history: prefer directive shapes this operator has actually executed and that measurably helped.
+- Address the Orchestrator's rank-1 priority unless an active personal policy forbids it; if you deviate, say why in the body.
+- Do not re-derive state from raw signals: the fused axes are already weighted by confidence, reliability and recency.
 `;
 
 

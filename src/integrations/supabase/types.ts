@@ -392,6 +392,42 @@ export type Database = {
         }
         Relationships: []
       }
+      orchestrator_runs: {
+        Row: {
+          conflicts: Json
+          created_at: string
+          fused_axes: Json
+          generated_at: string
+          id: string
+          priorities: Json
+          signal_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          conflicts?: Json
+          created_at?: string
+          fused_axes?: Json
+          generated_at?: string
+          id?: string
+          priorities?: Json
+          signal_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          conflicts?: Json
+          created_at?: string
+          fused_axes?: Json
+          generated_at?: string
+          id?: string
+          priorities?: Json
+          signal_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       policies: {
         Row: {
           active: boolean
@@ -612,6 +648,53 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      signal_conflicts: {
+        Row: {
+          axis: string
+          competing: Json
+          created_at: string
+          id: string
+          reason: string
+          resolution: string
+          run_id: string | null
+          severity: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          axis: string
+          competing?: Json
+          created_at?: string
+          id?: string
+          reason?: string
+          resolution?: string
+          run_id?: string | null
+          severity?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          axis?: string
+          competing?: Json
+          created_at?: string
+          id?: string
+          reason?: string
+          resolution?: string
+          run_id?: string | null
+          severity?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_conflicts_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "orchestrator_runs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

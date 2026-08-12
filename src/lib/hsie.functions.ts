@@ -4,6 +4,12 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  fuseSignals,
+  type Axis,
+  type CheckIn,
+  type RawSignal,
+} from "./orchestrator.server";
 
 export type StateFamily = {
   value: number | null; // 0..100 (higher = better; stress inverted before storage)

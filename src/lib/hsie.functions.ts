@@ -46,144 +46,65 @@ export const computeHumanStateVector = createServerFn({ method: "POST" })
     const [{ data: checkIn }, { data: signalsRows }] = await Promise.all([
       supabase
         .from("check_ins")
-        .select("*")
+        .select("energy, focus, recovery, stress, mood, sleep_hours, created_at")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
       supabase
         .from("engine_signals")
-        .select("*")
+        .select(
+          "engine, signal_key, value_num, value_text, confidence, reliability, trend, occurred_at",
+        )
         .order("occurred_at", { ascending: false })
-        .limit(200),
+        .limit(300),
     ]);
 
-    // reduce to latest per signal_key
-    const latest = new Map<string, (typeof signalsRows extends (infer T)[] | null ? T : never)>();
-    for (const row of signalsRows ?? []) {
-      if (!latest.has(row.signal_key)) latest.set(row.signal_key, row);
-    }
-    const sig = (k: string) => latest.get(k);
-    const num = (k: string): number | null => {
-      const r = sig(k);
-      return r && r.value_num !== null ? Number(r.value_num) : null;
-    };
+    // The Orchestrator (Art. IX) owns fusion. HSIE consumes its fused axes so the
+    // state vector and the advisor can never diverge from one another.
+    const { fused } = fuseSignals(
+      (signalsRows ?? []) as unknown as RawSignal[],
+      (checkIn ?? null) as unknown as CheckIn,
+    );
+    const byAxis = new Map(fused.map((f) => [f.axis, f]));
 
-    // --- Physical: body load + recovery ---
-    const load7d = num("body.load_7d");
-    const recovery = checkIn?.recovery ?? null;
-    const physicalValue =
-      recovery !== null
-        ? Math.round(
-            recovery * 0.7 +
-              (load7d !== null ? Math.min(100, load7d / 3) * 0.3 : recovery * 0.3),
-          )
-        : null;
-
-    const physical: StateFamily = {
-      value: physicalValue,
-      confidence: recovery !== null ? 0.7 : 0.2,
-      reliability: recovery !== null ? 0.75 : 0.3,
-      trend: "unknown",
-      inputs: ["check_ins.recovery", "body.load_7d"],
-      note:
-        physicalValue === null
-          ? "Log a check-in to populate physical readiness."
+    const family = (axis: Axis, emptyNote: string): StateFamily => {
+      const f = byAxis.get(axis);
+      if (!f || f.value === null) return empty(emptyNote);
+      return {
+        value: f.value,
+        confidence: f.confidence,
+        reliability:
+          f.contributions.length > 0
+            ? Math.round(
+                (f.contributions.reduce((a, c) => a + c.reliability, 0) /
+                  f.contributions.length) *
+                  100,
+              ) / 100
+            : null,
+        trend:
+          (f.contributions.find((c) => c.trend && c.trend !== "unknown")
+            ?.trend as StateFamily["trend"]) ?? "unknown",
+        inputs: f.contributions.map((c) => c.source),
+        note: f.contested
+          ? `Contested: sources disagree by ${f.spread} points.`
           : undefined,
+      };
     };
 
-    // --- Cognitive: focus - stress penalty ---
-    const focus = checkIn?.focus ?? null;
-    const stress = checkIn?.stress ?? null;
-    const cognitiveValue =
-      focus !== null && stress !== null
-        ? Math.round(Math.max(0, Math.min(100, focus - stress * 0.4)))
-        : focus;
-    const cognitive: StateFamily = {
-      value: cognitiveValue,
-      confidence: focus !== null ? 0.7 : 0.2,
-      reliability: focus !== null ? 0.7 : 0.3,
-      trend: "unknown",
-      inputs: ["check_ins.focus", "check_ins.stress"],
-    };
+    const physical = family("physical", "Log a check-in to populate physical readiness.");
+    const cognitive = family("cognitive", "Log a check-in to populate.");
+    const emotional = family("emotional", "Log a check-in to populate.");
+    const behavioral = family("behavioral", "Complete routines to populate.");
+    const lifestyle = family("lifestyle", "Log meals + hydration to populate.");
+    const operational = family("operational", "Log a check-in to populate.");
 
-    // --- Emotional: mood + inverse stress ---
-    const mood = checkIn?.mood ?? null;
-    const emotionalValue =
-      mood !== null && stress !== null
-        ? Math.round(mood * 0.7 + (100 - stress) * 0.3)
-        : mood;
-    const emotional: StateFamily = {
-      value: emotionalValue,
-      confidence: mood !== null ? 0.65 : 0.15,
-      reliability: mood !== null ? 0.65 : 0.25,
-      trend: "unknown",
-      inputs: ["check_ins.mood", "check_ins.stress"],
-    };
-
-    // --- Behavioral: routine adherence ---
-    const streak = num("routine.streak");
-    const completedToday = num("routine.completed_today");
-    const behavioralValue =
-      streak !== null || completedToday !== null
-        ? Math.round(
-            Math.min(100, (streak ?? 0) * 5) * 0.5 +
-              (completedToday !== null ? Math.min(100, completedToday * 25) : 0) *
-                0.5,
-          )
-        : null;
-    const behavioral: StateFamily = {
-      value: behavioralValue,
-      confidence: behavioralValue !== null ? 0.6 : 0.15,
-      reliability: behavioralValue !== null ? 0.6 : 0.25,
-      trend: "unknown",
-      inputs: ["routine.streak", "routine.completed_today"],
-    };
-
-    // --- Lifestyle: nutrition & hydration ---
-    const kcal = num("nutrition.kcal");
-    const protein = num("nutrition.protein_g");
-    const hydration = num("nutrition.hydration_ml");
-    const lifestyleParts: number[] = [];
-    if (kcal !== null) lifestyleParts.push(Math.min(100, (kcal / 2400) * 100));
-    if (protein !== null)
-      lifestyleParts.push(Math.min(100, (protein / 140) * 100));
-    if (hydration !== null)
-      lifestyleParts.push(Math.min(100, (hydration / 3000) * 100));
-    const lifestyleValue = lifestyleParts.length
-      ? Math.round(lifestyleParts.reduce((a, b) => a + b, 0) / lifestyleParts.length)
-      : null;
-    const lifestyle: StateFamily = {
-      value: lifestyleValue,
-      confidence: lifestyleParts.length ? 0.55 : 0.1,
-      reliability: lifestyleParts.length ? 0.6 : 0.2,
-      trend: "unknown",
-      inputs: ["nutrition.kcal", "nutrition.protein_g", "nutrition.hydration_ml"],
-    };
-
-    // --- Operational: energy - stress ---
-    const energy = checkIn?.energy ?? null;
-    const operationalValue =
-      energy !== null && stress !== null
-        ? Math.round(Math.max(0, Math.min(100, energy - stress * 0.3)))
-        : energy;
-    const operational: StateFamily = {
-      value: operationalValue,
-      confidence: energy !== null ? 0.75 : 0.2,
-      reliability: energy !== null ? 0.75 : 0.3,
-      trend: "unknown",
-      inputs: ["check_ins.energy", "check_ins.stress"],
-    };
-
-    const values = [
-      physical.value,
-      cognitive.value,
-      emotional.value,
-      behavioral.value,
-      lifestyle.value,
-      operational.value,
-    ].filter((v): v is number => v !== null);
-    const composite = values.length
-      ? Math.round(values.reduce((a, b) => a + b, 0) / values.length)
+    const weighted = [physical, cognitive, emotional, behavioral, lifestyle, operational]
+      .filter((f): f is StateFamily & { value: number } => f.value !== null);
+    const composite = weighted.length
+      ? Math.round(
+          weighted.reduce((a, f) => a + f.value * (f.confidence ?? 0.5), 0) /
+            weighted.reduce((a, f) => a + (f.confidence ?? 0.5), 0),
+        )
       : null;
 
     const as_of = today();
@@ -217,6 +138,7 @@ export const computeHumanStateVector = createServerFn({ method: "POST" })
     };
     return { hsv };
   });
+
 
 export const getLatestHSV = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

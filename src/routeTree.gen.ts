@@ -16,6 +16,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReflectionRouteImport } from './routes/reflection'
 import { Route as ProtocolsRouteImport } from './routes/protocols'
 import { Route as PoliciesRouteImport } from './routes/policies'
+import { Route as OrchestratorRouteImport } from './routes/orchestrator'
 import { Route as NutritionRouteImport } from './routes/nutrition'
 import { Route as LearningRouteImport } from './routes/learning'
 import { Route as HumanStateRouteImport } from './routes/human-state'
@@ -60,6 +61,11 @@ const ProtocolsRoute = ProtocolsRouteImport.update({
 const PoliciesRoute = PoliciesRouteImport.update({
   id: '/policies',
   path: '/policies',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrchestratorRoute = OrchestratorRouteImport.update({
+  id: '/orchestrator',
+  path: '/orchestrator',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NutritionRoute = NutritionRouteImport.update({
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/human-state': typeof HumanStateRoute
   '/learning': typeof LearningRoute
   '/nutrition': typeof NutritionRoute
+  '/orchestrator': typeof OrchestratorRoute
   '/policies': typeof PoliciesRoute
   '/protocols': typeof ProtocolsRoute
   '/reflection': typeof ReflectionRoute
@@ -143,6 +150,7 @@ export interface FileRoutesByTo {
   '/human-state': typeof HumanStateRoute
   '/learning': typeof LearningRoute
   '/nutrition': typeof NutritionRoute
+  '/orchestrator': typeof OrchestratorRoute
   '/policies': typeof PoliciesRoute
   '/protocols': typeof ProtocolsRoute
   '/reflection': typeof ReflectionRoute
@@ -163,6 +171,7 @@ export interface FileRoutesById {
   '/human-state': typeof HumanStateRoute
   '/learning': typeof LearningRoute
   '/nutrition': typeof NutritionRoute
+  '/orchestrator': typeof OrchestratorRoute
   '/policies': typeof PoliciesRoute
   '/protocols': typeof ProtocolsRoute
   '/reflection': typeof ReflectionRoute
@@ -184,6 +193,7 @@ export interface FileRouteTypes {
     | '/human-state'
     | '/learning'
     | '/nutrition'
+    | '/orchestrator'
     | '/policies'
     | '/protocols'
     | '/reflection'
@@ -203,6 +213,7 @@ export interface FileRouteTypes {
     | '/human-state'
     | '/learning'
     | '/nutrition'
+    | '/orchestrator'
     | '/policies'
     | '/protocols'
     | '/reflection'
@@ -222,6 +233,7 @@ export interface FileRouteTypes {
     | '/human-state'
     | '/learning'
     | '/nutrition'
+    | '/orchestrator'
     | '/policies'
     | '/protocols'
     | '/reflection'
@@ -242,6 +254,7 @@ export interface RootRouteChildren {
   HumanStateRoute: typeof HumanStateRoute
   LearningRoute: typeof LearningRoute
   NutritionRoute: typeof NutritionRoute
+  OrchestratorRoute: typeof OrchestratorRoute
   PoliciesRoute: typeof PoliciesRoute
   ProtocolsRoute: typeof ProtocolsRoute
   ReflectionRoute: typeof ReflectionRoute
@@ -300,6 +313,13 @@ declare module '@tanstack/react-router' {
       path: '/policies'
       fullPath: '/policies'
       preLoaderRoute: typeof PoliciesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/orchestrator': {
+      id: '/orchestrator'
+      path: '/orchestrator'
+      fullPath: '/orchestrator'
+      preLoaderRoute: typeof OrchestratorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/nutrition': {
@@ -386,6 +406,7 @@ const rootRouteChildren: RootRouteChildren = {
   HumanStateRoute: HumanStateRoute,
   LearningRoute: LearningRoute,
   NutritionRoute: NutritionRoute,
+  OrchestratorRoute: OrchestratorRoute,
   PoliciesRoute: PoliciesRoute,
   ProtocolsRoute: ProtocolsRoute,
   ReflectionRoute: ReflectionRoute,

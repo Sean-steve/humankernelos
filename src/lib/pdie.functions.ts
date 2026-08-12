@@ -8,6 +8,13 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { outcomeHistoryPrompt, type OutcomeRow, type RecRow } from "./learning.server";
+import {
+  fuseSignals,
+  rankPriorities,
+  orchestratorPrompt,
+  type CheckIn,
+  type RawSignal,
+} from "./orchestrator.server";
 
 const RecommendationSchema = z.object({
   title: z.string(),
@@ -41,6 +48,8 @@ Rules:
 - trades_off: true when the recommendation gains one axis at the measurable expense of another.
 - sustainability_note: one sentence on the long-term effect. Never sacrifice long-term performance for a short-term win.
 - Apply the learned history: prefer directive shapes this operator has actually executed and that measurably helped.
+- Address the Orchestrator's rank-1 priority unless an active personal policy forbids it; if you deviate, say why in the body.
+- Do not re-derive state from raw signals: the fused axes are already weighted by confidence, reliability and recency.
 `;
 
 
@@ -60,10 +69,11 @@ export const generateRecommendation = createServerFn({ method: "POST" })
 
     const { supabase, userId } = context;
 
-    // Load HSV, latest check-in, active policies, profile, learned history
+    // Load HSV, latest check-in, signals, active policies, profile, learned history
     const [
       { data: hsvRow },
       { data: checkIn },
+      { data: signalRows },
       { data: activePolicies },
       { data: profile },
       { data: pastRecs },
@@ -82,6 +92,14 @@ export const generateRecommendation = createServerFn({ method: "POST" })
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      supabase
+        .from("engine_signals")
+        .select(
+          "engine, signal_key, value_num, value_text, confidence, reliability, trend, occurred_at",
+        )
+        .order("occurred_at", { ascending: false })
+        .limit(300),
+
       supabase
         .from("policies")
         .select("name, description, when_condition, then_action, priority")
@@ -150,14 +168,25 @@ export const generateRecommendation = createServerFn({ method: "POST" })
           .join("\n")
       : "No learned patterns yet.";
 
+    // Art. IX: the Orchestrator fuses signals, resolves conflicts and ranks what
+    // matters now. PDIE decides against that ranking, not a raw signal dump.
+    const { fused, conflicts } = fuseSignals(
+      (signalRows ?? []) as unknown as RawSignal[],
+      (checkIn ?? null) as unknown as CheckIn,
+    );
+    const priorities = rankPriorities(fused);
+    const orchestratorSummary = orchestratorPrompt(fused, conflicts, priorities);
+
     const prompt = [
       identitySummary,
+      orchestratorSummary,
       hsvSummary,
       checkInSummary,
       policySummary,
       historySummary,
       patternSummary,
       `Recommendation type: ${data.type}.`,
+
       data.context ? `Additional context: ${data.context}` : "",
     ]
       .filter(Boolean)

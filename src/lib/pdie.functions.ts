@@ -166,14 +166,25 @@ export const generateRecommendation = createServerFn({ method: "POST" })
           .join("\n")
       : "No learned patterns yet.";
 
+    // Art. IX: the Orchestrator fuses signals, resolves conflicts and ranks what
+    // matters now. PDIE decides against that ranking, not a raw signal dump.
+    const { fused, conflicts } = fuseSignals(
+      (signalRows ?? []) as unknown as RawSignal[],
+      (checkIn ?? null) as unknown as CheckIn,
+    );
+    const priorities = rankPriorities(fused);
+    const orchestratorSummary = orchestratorPrompt(fused, conflicts, priorities);
+
     const prompt = [
       identitySummary,
+      orchestratorSummary,
       hsvSummary,
       checkInSummary,
       policySummary,
       historySummary,
       patternSummary,
       `Recommendation type: ${data.type}.`,
+
       data.context ? `Additional context: ${data.context}` : "",
     ]
       .filter(Boolean)

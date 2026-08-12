@@ -30,6 +30,7 @@ const navItems = [
   { icon: Sun, label: "Today", to: "/" },
   { icon: ClipboardCheck, label: "Check-in", to: "/check-in" },
   { icon: CircleGauge, label: "Human State", to: "/human-state" },
+  { icon: Workflow, label: "Orchestrator", to: "/orchestrator" },
   { icon: ScrollText, label: "Policies", to: "/policies" },
   { icon: Brain, label: "Learning", to: "/learning" },
   { icon: GitBranch, label: "Timeline", to: "/timeline" },

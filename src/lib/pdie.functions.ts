@@ -67,10 +67,11 @@ export const generateRecommendation = createServerFn({ method: "POST" })
 
     const { supabase, userId } = context;
 
-    // Load HSV, latest check-in, active policies, profile, learned history
+    // Load HSV, latest check-in, signals, active policies, profile, learned history
     const [
       { data: hsvRow },
       { data: checkIn },
+      { data: signalRows },
       { data: activePolicies },
       { data: profile },
       { data: pastRecs },

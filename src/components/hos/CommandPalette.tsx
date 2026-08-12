@@ -18,6 +18,7 @@ const commands = [
   { icon: Sun, label: "Today", to: "/", hint: "Kernel home" },
   { icon: ClipboardCheck, label: "Check-in", to: "/check-in", hint: "Log human state" },
   { icon: CircleGauge, label: "Human State", to: "/human-state", hint: "Live readings" },
+  { icon: Workflow, label: "Orchestrator", to: "/orchestrator", hint: "Fused state + priorities" },
   { icon: Compass, label: "Standards", to: "/standards", hint: "Who I am, measured" },
   { icon: Workflow, label: "Protocols", to: "/protocols", hint: "Playbooks" },
   { icon: Flame, label: "Achievements", to: "/achievements", hint: "Lifetime ledger" },

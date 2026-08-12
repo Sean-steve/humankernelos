@@ -8,6 +8,13 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { outcomeHistoryPrompt, type OutcomeRow, type RecRow } from "./learning.server";
+import {
+  fuseSignals,
+  rankPriorities,
+  orchestratorPrompt,
+  type CheckIn,
+  type RawSignal,
+} from "./orchestrator.server";
 
 const RecommendationSchema = z.object({
   title: z.string(),

@@ -50,9 +50,9 @@ function ProtocolsPage() {
   return (
     <Shell>
       <PageHeader
-        eyebrow="Operating protocols"
+        eyebrow="Operating protocols · sample library"
         title="The playbooks the system runs on itself."
-        intro="A protocol is a decision made once, executed forever. The Kernel triggers them, tracks adherence, and quietly removes the need to decide again."
+        intro="A protocol is a decision made once, executed forever. The playbooks below are a sample library; your completions and streaks are real and recorded."
       />
 
       <section className="mt-10 flex flex-col gap-5">

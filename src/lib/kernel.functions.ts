@@ -1,25 +1,37 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertEngineActive } from "./permissions.server";
+import {
+  EVENT_HANDLERS,
+  deliver,
+  publishAndDispatch,
+  subscriptionSeeds,
+  type MeshEvent,
+} from "./mesh.server";
 
 const EventInput = z.object({
   type: z.string().min(1).max(64),
   source_engine: z.string().min(1).max(64),
   payload: z.record(z.string(), z.unknown()).default({}),
+  correlation_id: z.string().uuid().optional(),
+  idempotency_key: z.string().max(200).optional(),
+  schema_version: z.number().int().min(1).max(99).optional(),
 });
 
 export const publishEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => EventInput.parse(d))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("hos_events").insert({
-      user_id: context.userId,
+    const result = await publishAndDispatch(context.supabase, context.userId, {
       type: data.type,
       source_engine: data.source_engine,
-      payload: data.payload as never,
+      payload: data.payload,
+      ...(data.correlation_id ? { correlation_id: data.correlation_id } : {}),
+      ...(data.idempotency_key ? { idempotency_key: data.idempotency_key } : {}),
+      ...(data.schema_version ? { schema_version: data.schema_version } : {}),
     });
-    if (error) throw new Error(error.message);
-    return { ok: true };
+    return { ok: true, ...result };
   });
 
 const SignalInput = z.object({
@@ -40,6 +52,9 @@ export const publishSignal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => SignalInput.parse(d))
   .handler(async ({ data, context }) => {
+    // A disabled engine cannot publish (Spec Ch. 6 lifecycle enforcement).
+    await assertEngineActive(context.supabase, context.userId, data.engine);
+
     const { error } = await context.supabase.from("engine_signals").insert({
       user_id: context.userId,
       engine: data.engine,
@@ -54,6 +69,7 @@ export const publishSignal = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
 
 // --- Engine Registry (Constitution Art. VI / Spec Ch. 6) --------------------
 

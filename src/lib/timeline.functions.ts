@@ -18,7 +18,7 @@ export type TimelineItem = {
 export const getTimeline = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     await assertScope(supabase, userId, "timeline", "hos_events");
 
     const [events, checkIns, reflections, recs, signals] = await Promise.all([

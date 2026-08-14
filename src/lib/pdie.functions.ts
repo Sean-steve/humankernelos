@@ -6,6 +6,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertScope } from "./permissions.server";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { outcomeHistoryPrompt, type OutcomeRow, type RecRow } from "./learning.server";
 import {

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { generateText } from "ai";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+import { publishAndDispatch } from "./mesh.server";
 
 const CheckInInput = z.object({
   energy: z.number().min(0).max(100),
@@ -63,5 +64,20 @@ export const submitCheckIn = createServerFn({ method: "POST" })
       .single();
 
     if (error) throw new Error(error.message);
+
+    await publishAndDispatch(context.supabase, context.userId, {
+      type: "CheckInSubmitted",
+      source_engine: "hsie",
+      payload: {
+        energy: data.energy,
+        focus: data.focus,
+        recovery: data.recovery,
+        stress: data.stress,
+        mood: data.mood,
+        sleep_hours: data.sleepHours,
+      },
+      idempotency_key: `checkin:${row.id}`,
+    });
+
     return { checkIn: row, directive };
   });

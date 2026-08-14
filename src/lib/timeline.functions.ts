@@ -3,6 +3,7 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertScope } from "./permissions.server";
 
 export type TimelineItem = {
   id: string;
@@ -18,6 +19,7 @@ export const getTimeline = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase } = context;
+    await assertScope(supabase, userId, "timeline", "hos_events");
 
     const [events, checkIns, reflections, recs, signals] = await Promise.all([
       supabase

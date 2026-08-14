@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { publishAndDispatch } from "./mesh.server";
 
 const BodyInput = z.object({
   kind: z.string().min(1).max(80),
@@ -26,13 +27,6 @@ export const logSession = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
 
-    await context.supabase.from("hos_events").insert({
-      user_id: context.userId,
-      type: "WorkoutCompleted",
-      source_engine: "body",
-      payload: { kind: data.kind, duration_min: data.duration_min, intensity: data.intensity },
-    });
-
     // 7-day load = sum(duration * intensity)
     const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
     const { data: recent } = await context.supabase
@@ -47,6 +41,13 @@ export const logSession = createServerFn({ method: "POST" })
       { user_id: context.userId, engine: "body", signal_key: "body.load_7d", value_num: load },
       { user_id: context.userId, engine: "body", signal_key: "body.last_session_min", value_num: data.duration_min },
     ]);
+
+    await publishAndDispatch(context.supabase, context.userId, {
+      type: "WorkoutCompleted",
+      source_engine: "body",
+      payload: { kind: data.kind, duration_min: data.duration_min, intensity: data.intensity },
+      idempotency_key: `workout:${row.id}`,
+    });
 
     return { session: row };
   });

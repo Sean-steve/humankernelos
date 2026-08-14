@@ -4,6 +4,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { publishAndDispatch } from "./mesh.server";
 import {
   AXES,
   adherenceRate,
@@ -53,33 +54,20 @@ export const recordOutcome = createServerFn({ method: "POST" })
       .eq("id", data.recommendation_id)
       .eq("user_id", userId);
 
-    // Emit adherence as a first-class signal (Art. VIII shape).
+    // The mesh handler recomputes and publishes learning.adherence.
+    await publishAndDispatch(supabase, userId, {
+      type: "OutcomeMeasured",
+      source_engine: "learning",
+      payload: { recommendation_id: data.recommendation_id, executed: data.executed },
+      idempotency_key: `outcome:${data.recommendation_id}`,
+    });
+
     const { data: outcomes } = await supabase
       .from("recommendation_outcomes")
       .select("recommendation_id, executed, effect, friction, measured_at")
       .order("measured_at", { ascending: false })
       .limit(200);
-
     const rate = adherenceRate((outcomes ?? []) as unknown as OutcomeRow[]);
-    if (rate !== null) {
-      await supabase.from("engine_signals").insert({
-        user_id: userId,
-        engine: "learning",
-        signal_key: "learning.adherence",
-        value_num: rate,
-        confidence: Math.min(0.9, 0.4 + (outcomes?.length ?? 0) * 0.05),
-        reliability: 0.9,
-        trend: "unknown",
-        metadata: { measured: outcomes?.length ?? 0 } as never,
-      });
-    }
-
-    await supabase.from("hos_events").insert({
-      user_id: userId,
-      type: "OutcomeMeasured",
-      source_engine: "learning",
-      payload: { recommendation_id: data.recommendation_id, executed: data.executed } as never,
-    });
 
     return { ok: true, adherence: rate };
   });

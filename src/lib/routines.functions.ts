@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { publishAndDispatch } from "./mesh.server";
 
 const CompletionInput = z.object({
   routine_key: z.string().min(1).max(120),
@@ -15,13 +16,6 @@ export const completeRoutine = createServerFn({ method: "POST" })
       routine_key: data.routine_key,
     });
     if (error) throw new Error(error.message);
-
-    await context.supabase.from("hos_events").insert({
-      user_id: context.userId,
-      type: "RoutineCompleted",
-      source_engine: "routine",
-      payload: { routine_key: data.routine_key },
-    });
 
     // Streak: consecutive days with any completion, up to 60 days back
     const since = new Date(Date.now() - 60 * 24 * 3600 * 1000).toISOString();
@@ -51,6 +45,12 @@ export const completeRoutine = createServerFn({ method: "POST" })
       { user_id: context.userId, engine: "routine", signal_key: "routine.streak", value_num: streak },
       { user_id: context.userId, engine: "routine", signal_key: "routine.completed_today", value_num: todayCount },
     ]);
+
+    await publishAndDispatch(context.supabase, context.userId, {
+      type: "RoutineCompleted",
+      source_engine: "routine",
+      payload: { routine_key: data.routine_key, streak, completed_today: todayCount },
+    });
 
     return { ok: true, streak, todayCount };
   });

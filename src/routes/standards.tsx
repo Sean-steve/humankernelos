@@ -52,7 +52,7 @@ function StandardsPage() {
       <PageHeader
         eyebrow="Personal standards"
         title="Who I am, measured."
-        intro="A standard is not a goal. It is a line you have drawn about who you are. The Kernel measures the distance between that line and your actual behavior — quietly, every day."
+        intro="A standard is not a goal. It is a line you have drawn about who you are. Your identity statements are live; the adherence figures below are sample values until standards tracking is bound to recorded behaviour."
       />
 
       {/* Primary standard */}

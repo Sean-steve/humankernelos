@@ -33,9 +33,9 @@ export function AchievementsPage() {
   return (
     <Shell>
       <PageHeader
-        eyebrow="Lifetime ledger"
+        eyebrow="Lifetime ledger · sample data"
         title="Compounding proof of who you are."
-        intro="No feed. No badges. Only the counts and the moments the Kernel records because they cannot be argued with."
+        intro="No feed. No badges. Only the counts and the moments the Kernel records because they cannot be argued with. These figures are illustrative samples — the ledger is not yet bound to your recorded history."
       />
 
       {/* Big counts */}

@@ -4,6 +4,7 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertScope } from "./permissions.server";
 import {
   fuseSignals,
   type Axis,
@@ -48,6 +49,7 @@ export const computeHumanStateVector = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
+    await assertScope(supabase, userId, "hsie", "check_ins");
 
     const [{ data: checkIn }, { data: signalsRows }] = await Promise.all([
       supabase

@@ -6,6 +6,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertScope } from "./permissions.server";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { outcomeHistoryPrompt, type OutcomeRow, type RecRow } from "./learning.server";
 import {
@@ -68,6 +69,7 @@ export const generateRecommendation = createServerFn({ method: "POST" })
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
 
     const { supabase, userId } = context;
+    await assertScope(supabase, userId, "pdie", "human_states");
 
     // Load HSV, latest check-in, signals, active policies, profile, learned history
     const [

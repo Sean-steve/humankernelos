@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { publishAndDispatch } from "./mesh.server";
 
 const NutritionInput = z.object({
   meal: z.string().min(1).max(120),
@@ -28,14 +29,6 @@ export const logMeal = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
 
-    // Publish event
-    await context.supabase.from("hos_events").insert({
-      user_id: context.userId,
-      type: "MealLogged",
-      source_engine: "nutrition",
-      payload: { meal: data.meal, kcal: data.kcal, protein_g: data.protein_g, water_ml: data.water_ml },
-    });
-
     // Recompute today's totals and publish signals
     const start = new Date();
     start.setHours(0, 0, 0, 0);
@@ -51,6 +44,14 @@ export const logMeal = createServerFn({ method: "POST" })
       { user_id: context.userId, engine: "nutrition", signal_key: "nutrition.protein_g", value_num: protein },
       { user_id: context.userId, engine: "nutrition", signal_key: "nutrition.hydration_ml", value_num: water },
     ]);
+
+    // Publish through the Event Mesh so subscribed engines actually run.
+    await publishAndDispatch(context.supabase, context.userId, {
+      type: "MealLogged",
+      source_engine: "nutrition",
+      payload: { meal: data.meal, kcal: data.kcal, protein_g: data.protein_g, water_ml: data.water_ml },
+      idempotency_key: `meal:${row.id}`,
+    });
 
     return { log: row };
   });

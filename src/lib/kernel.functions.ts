@@ -1,25 +1,37 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertEngineActive } from "./permissions.server";
+import {
+  EVENT_HANDLERS,
+  deliver,
+  publishAndDispatch,
+  subscriptionSeeds,
+  type MeshEvent,
+} from "./mesh.server";
 
 const EventInput = z.object({
   type: z.string().min(1).max(64),
   source_engine: z.string().min(1).max(64),
   payload: z.record(z.string(), z.unknown()).default({}),
+  correlation_id: z.string().uuid().optional(),
+  idempotency_key: z.string().max(200).optional(),
+  schema_version: z.number().int().min(1).max(99).optional(),
 });
 
 export const publishEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => EventInput.parse(d))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("hos_events").insert({
-      user_id: context.userId,
+    const result = await publishAndDispatch(context.supabase, context.userId, {
       type: data.type,
       source_engine: data.source_engine,
-      payload: data.payload as never,
+      payload: data.payload,
+      ...(data.correlation_id ? { correlation_id: data.correlation_id } : {}),
+      ...(data.idempotency_key ? { idempotency_key: data.idempotency_key } : {}),
+      ...(data.schema_version ? { schema_version: data.schema_version } : {}),
     });
-    if (error) throw new Error(error.message);
-    return { ok: true };
+    return { ok: true, ...result };
   });
 
 const SignalInput = z.object({
@@ -40,6 +52,9 @@ export const publishSignal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => SignalInput.parse(d))
   .handler(async ({ data, context }) => {
+    // A disabled engine cannot publish (Spec Ch. 6 lifecycle enforcement).
+    await assertEngineActive(context.supabase, context.userId, data.engine);
+
     const { error } = await context.supabase.from("engine_signals").insert({
       user_id: context.userId,
       engine: data.engine,
@@ -54,6 +69,7 @@ export const publishSignal = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
 
 // --- Engine Registry (Constitution Art. VI / Spec Ch. 6) --------------------
 
@@ -101,7 +117,24 @@ export const registerEngine = createServerFn({ method: "POST" })
         { onConflict: "user_id,engine_id" },
       );
     if (error) throw new Error(error.message);
-    return { ok: true };
+
+    // Materialise this engine's declared subscriptions into the mesh.
+    const seeds = subscriptionSeeds().filter((x) => x.engine_id === data.engine_id);
+    if (seeds.length > 0) {
+      const { error: subErr } = await context.supabase.from("engine_subscriptions").upsert(
+        seeds.map((x) => ({
+          user_id: context.userId,
+          engine_id: x.engine_id,
+          event_type: x.event_type,
+          handler: x.handler,
+          enabled: data.status === "active",
+        })),
+        { onConflict: "user_id,engine_id,event_type,handler" },
+      );
+      if (subErr) throw new Error(subErr.message);
+    }
+
+    return { ok: true, subscriptions: seeds.length };
   });
 
 export const listEngines = createServerFn({ method: "GET" })
@@ -130,6 +163,21 @@ export const setEngineStatus = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .eq("engine_id", data.engine_id);
     if (error) throw new Error(error.message);
+
+    // Lifecycle is real: a disabled engine stops receiving events.
+    await context.supabase
+      .from("engine_subscriptions")
+      .update({ enabled: data.status === "active" })
+      .eq("user_id", context.userId)
+      .eq("engine_id", data.engine_id);
+
+    await context.supabase.from("audit_log").insert({
+      user_id: context.userId,
+      action: "engine.status_changed",
+      resource: data.engine_id,
+      detail: { status: data.status } as never,
+    });
+
     return { ok: true };
   });
 
@@ -160,4 +208,69 @@ export const listRecentEvents = createServerFn({ method: "GET" })
       .limit(30);
     if (error) throw new Error(error.message);
     return { events: data ?? [] };
+  });
+
+// --- Event Mesh observability & recovery (HIS-004) ------------------------
+
+export const listEventDeliveries = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const [{ data: deliveries, error }, { data: subs }] = await Promise.all([
+      context.supabase
+        .from("hos_event_deliveries")
+        .select("id, event_id, engine_id, handler, status, attempts, last_error, dead_letter, created_at")
+        .order("created_at", { ascending: false })
+        .limit(60),
+      context.supabase
+        .from("engine_subscriptions")
+        .select("engine_id, event_type, handler, enabled")
+        .order("event_type", { ascending: true }),
+    ]);
+    if (error) throw new Error(error.message);
+    return {
+      deliveries: deliveries ?? [],
+      subscriptions: subs ?? [],
+      declared: subscriptionSeeds(),
+    };
+  });
+
+/** Re-run every dead-lettered delivery for this user. */
+export const retryDeadLetters = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+
+    const { data: rows, error } = await supabase
+      .from("hos_event_deliveries")
+      .select("event_id, engine_id, handler")
+      .eq("dead_letter", true)
+      .limit(20);
+    if (error) throw new Error(error.message);
+
+    let replayed = 0;
+    for (const row of rows ?? []) {
+      const { data: ev } = await supabase
+        .from("hos_events")
+        .select("id, type, source_engine, payload, correlation_id")
+        .eq("id", row.event_id)
+        .maybeSingle();
+      if (!ev) continue;
+
+      const handler = (EVENT_HANDLERS[ev.type] ?? []).find(
+        (h) => h.engine_id === row.engine_id && h.handler === row.handler,
+      );
+      if (!handler) continue;
+
+      const event: MeshEvent = {
+        id: ev.id as string,
+        type: ev.type as string,
+        source_engine: ev.source_engine as string,
+        payload: (ev.payload ?? {}) as Record<string, unknown>,
+        correlation_id: ev.correlation_id as string,
+      };
+      await deliver(supabase, userId, event, handler);
+      replayed += 1;
+    }
+
+    return { ok: true, replayed };
   });

@@ -69,6 +69,7 @@ export const generateRecommendation = createServerFn({ method: "POST" })
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
 
     const { supabase, userId } = context;
+    await assertScope(supabase, userId, "pdie", "human_states");
 
     // Load HSV, latest check-in, signals, active policies, profile, learned history
     const [

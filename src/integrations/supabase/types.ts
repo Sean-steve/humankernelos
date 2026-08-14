@@ -188,6 +188,39 @@ export type Database = {
         }
         Relationships: []
       }
+      engine_subscriptions: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          engine_id: string
+          event_type: string
+          handler: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          engine_id: string
+          event_type: string
+          handler: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          engine_id?: string
+          event_type?: string
+          handler?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       engines: {
         Row: {
           capabilities: Json
@@ -251,27 +284,89 @@ export type Database = {
         }
         Relationships: []
       }
+      hos_event_deliveries: {
+        Row: {
+          attempts: number
+          correlation_id: string | null
+          created_at: string
+          dead_letter: boolean
+          engine_id: string
+          event_id: string
+          handler: string
+          id: string
+          last_error: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          correlation_id?: string | null
+          created_at?: string
+          dead_letter?: boolean
+          engine_id: string
+          event_id: string
+          handler: string
+          id?: string
+          last_error?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          correlation_id?: string | null
+          created_at?: string
+          dead_letter?: boolean
+          engine_id?: string
+          event_id?: string
+          handler?: string
+          id?: string
+          last_error?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hos_event_deliveries_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "hos_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hos_events: {
         Row: {
+          correlation_id: string
           id: string
+          idempotency_key: string | null
           occurred_at: string
           payload: Json
+          schema_version: number
           source_engine: string
           type: string
           user_id: string
         }
         Insert: {
+          correlation_id?: string
           id?: string
+          idempotency_key?: string | null
           occurred_at?: string
           payload?: Json
+          schema_version?: number
           source_engine: string
           type: string
           user_id: string
         }
         Update: {
+          correlation_id?: string
           id?: string
+          idempotency_key?: string | null
           occurred_at?: string
           payload?: Json
+          schema_version?: number
           source_engine?: string
           type?: string
           user_id?: string

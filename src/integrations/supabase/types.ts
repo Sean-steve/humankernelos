@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_idempotency_keys: {
+        Row: {
+          created_at: string
+          endpoint: string
+          id: string
+          key: string
+          response: Json
+          status: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint: string
+          id?: string
+          key: string
+          response?: Json
+          status?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          endpoint?: string
+          id?: string
+          key?: string
+          response?: Json
+          status?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      api_request_log: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          id: string
+          method: string
+          path: string
+          request_id: string
+          status: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number
+          id?: string
+          method: string
+          path: string
+          request_id?: string
+          status: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          id?: string
+          method?: string
+          path?: string
+          request_id?: string
+          status?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -71,6 +134,45 @@ export type Database = {
         }
         Relationships: []
       }
+      capability_invocations: {
+        Row: {
+          capability: string
+          consumer_engine_id: string
+          correlation_id: string | null
+          created_at: string
+          duration_ms: number
+          error: string | null
+          id: string
+          provider_engine_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          capability: string
+          consumer_engine_id: string
+          correlation_id?: string | null
+          created_at?: string
+          duration_ms?: number
+          error?: string | null
+          id?: string
+          provider_engine_id: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          capability?: string
+          consumer_engine_id?: string
+          correlation_id?: string | null
+          created_at?: string
+          duration_ms?: number
+          error?: string | null
+          id?: string
+          provider_engine_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       check_ins: {
         Row: {
           created_at: string
@@ -109,6 +211,219 @@ export type Database = {
           recovery?: number
           sleep_hours?: number
           stress?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      connector_credentials: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          provider: string
+          secret_ref: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string
+          provider: string
+          secret_ref: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          provider?: string
+          secret_ref?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      connectors: {
+        Row: {
+          auth_type: string
+          created_at: string
+          health: string
+          id: string
+          last_error: string | null
+          last_sync_at: string | null
+          name: string
+          provider: string
+          status: string
+          supported_operations: Json
+          updated_at: string
+          user_id: string
+          version: string
+        }
+        Insert: {
+          auth_type?: string
+          created_at?: string
+          health?: string
+          id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          name: string
+          provider: string
+          status?: string
+          supported_operations?: Json
+          updated_at?: string
+          user_id: string
+          version?: string
+        }
+        Update: {
+          auth_type?: string
+          created_at?: string
+          health?: string
+          id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          name?: string
+          provider?: string
+          status?: string
+          supported_operations?: Json
+          updated_at?: string
+          user_id?: string
+          version?: string
+        }
+        Relationships: []
+      }
+      engine_capabilities: {
+        Row: {
+          capability: string
+          created_at: string
+          id: string
+          input_schema: Json
+          output_schema: Json
+          provider_engine_id: string
+          required_permission: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          version: string
+        }
+        Insert: {
+          capability: string
+          created_at?: string
+          id?: string
+          input_schema?: Json
+          output_schema?: Json
+          provider_engine_id: string
+          required_permission?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          version?: string
+        }
+        Update: {
+          capability?: string
+          created_at?: string
+          id?: string
+          input_schema?: Json
+          output_schema?: Json
+          provider_engine_id?: string
+          required_permission?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          version?: string
+        }
+        Relationships: []
+      }
+      engine_config: {
+        Row: {
+          created_at: string
+          engine_id: string
+          id: string
+          is_secret_ref: boolean
+          key: string
+          updated_at: string
+          user_id: string
+          value: string | null
+        }
+        Insert: {
+          created_at?: string
+          engine_id: string
+          id?: string
+          is_secret_ref?: boolean
+          key: string
+          updated_at?: string
+          user_id: string
+          value?: string | null
+        }
+        Update: {
+          created_at?: string
+          engine_id?: string
+          id?: string
+          is_secret_ref?: boolean
+          key?: string
+          updated_at?: string
+          user_id?: string
+          value?: string | null
+        }
+        Relationships: []
+      }
+      engine_health_events: {
+        Row: {
+          created_at: string
+          engine_id: string
+          health: string
+          id: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          engine_id: string
+          health: string
+          id?: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          engine_id?: string
+          health?: string
+          id?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      engine_logs: {
+        Row: {
+          context: Json
+          correlation_id: string | null
+          created_at: string
+          engine_id: string
+          id: string
+          level: string
+          message: string
+          user_id: string
+        }
+        Insert: {
+          context?: Json
+          correlation_id?: string | null
+          created_at?: string
+          engine_id: string
+          id?: string
+          level?: string
+          message: string
+          user_id: string
+        }
+        Update: {
+          context?: Json
+          correlation_id?: string | null
+          created_at?: string
+          engine_id?: string
+          id?: string
+          level?: string
+          message?: string
           user_id?: string
         }
         Relationships: []
@@ -188,6 +503,36 @@ export type Database = {
         }
         Relationships: []
       }
+      engine_storage: {
+        Row: {
+          created_at: string
+          engine_id: string
+          id: string
+          key: string
+          updated_at: string
+          user_id: string
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          engine_id: string
+          id?: string
+          key: string
+          updated_at?: string
+          user_id: string
+          value?: Json
+        }
+        Update: {
+          created_at?: string
+          engine_id?: string
+          id?: string
+          key?: string
+          updated_at?: string
+          user_id?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       engine_subscriptions: {
         Row: {
           created_at: string
@@ -227,16 +572,24 @@ export type Database = {
           data_owned: Json
           dependencies: Json
           engine_id: string
+          error_count: number
           events_consumed: Json
           events_published: Json
+          health: string
           id: string
           installed_at: string
+          last_error: string | null
+          last_event_at: string | null
+          last_heartbeat_at: string | null
+          lifecycle_state: string
           name: string
           owner: string | null
           permissions: Json
+          platform_version: string
           published_signals: Json
           purpose: string | null
           required_signals: Json
+          sdk_version: string
           status: string
           updated_at: string
           user_id: string
@@ -247,16 +600,24 @@ export type Database = {
           data_owned?: Json
           dependencies?: Json
           engine_id: string
+          error_count?: number
           events_consumed?: Json
           events_published?: Json
+          health?: string
           id?: string
           installed_at?: string
+          last_error?: string | null
+          last_event_at?: string | null
+          last_heartbeat_at?: string | null
+          lifecycle_state?: string
           name: string
           owner?: string | null
           permissions?: Json
+          platform_version?: string
           published_signals?: Json
           purpose?: string | null
           required_signals?: Json
+          sdk_version?: string
           status?: string
           updated_at?: string
           user_id: string
@@ -267,20 +628,64 @@ export type Database = {
           data_owned?: Json
           dependencies?: Json
           engine_id?: string
+          error_count?: number
           events_consumed?: Json
           events_published?: Json
+          health?: string
           id?: string
           installed_at?: string
+          last_error?: string | null
+          last_event_at?: string | null
+          last_heartbeat_at?: string | null
+          lifecycle_state?: string
           name?: string
           owner?: string | null
           permissions?: Json
+          platform_version?: string
           published_signals?: Json
           purpose?: string | null
           required_signals?: Json
+          sdk_version?: string
           status?: string
           updated_at?: string
           user_id?: string
           version?: string
+        }
+        Relationships: []
+      }
+      event_schemas: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          event_type: string
+          id: string
+          payload_schema: Json
+          schema_version: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          event_type: string
+          id?: string
+          payload_schema?: Json
+          schema_version?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          event_type?: string
+          id?: string
+          payload_schema?: Json
+          schema_version?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -295,6 +700,7 @@ export type Database = {
           handler: string
           id: string
           last_error: string | null
+          next_attempt_at: string | null
           status: string
           updated_at: string
           user_id: string
@@ -309,6 +715,7 @@ export type Database = {
           handler: string
           id?: string
           last_error?: string | null
+          next_attempt_at?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -323,6 +730,7 @@ export type Database = {
           handler?: string
           id?: string
           last_error?: string | null
+          next_attempt_at?: string | null
           status?: string
           updated_at?: string
           user_id?: string
@@ -411,6 +819,42 @@ export type Database = {
           operational?: Json
           physical?: Json
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      integration_sync_runs: {
+        Row: {
+          direction: string
+          error: string | null
+          finished_at: string | null
+          id: string
+          provider: string
+          records: number
+          started_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          direction?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          provider: string
+          records?: number
+          started_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          direction?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          provider?: string
+          records?: number
+          started_at?: string
+          status?: string
           user_id?: string
         }
         Relationships: []
@@ -790,6 +1234,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      webhook_deliveries: {
+        Row: {
+          created_at: string
+          error: string | null
+          external_id: string | null
+          id: string
+          payload: Json
+          provider: string
+          signature_valid: boolean
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          external_id?: string | null
+          id?: string
+          payload?: Json
+          provider: string
+          signature_valid?: boolean
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          external_id?: string | null
+          id?: string
+          payload?: Json
+          provider?: string
+          signature_valid?: boolean
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {

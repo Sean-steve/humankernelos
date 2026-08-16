@@ -16,7 +16,18 @@ import {
   type Db,
 } from "./permissions.server";
 
+import { validateEvent, CURRENT_SCHEMA_VERSION } from "./events/schemas";
+
 export const MAX_ATTEMPTS = 3;
+/** Exponential backoff (ms) applied between inline retry attempts. */
+export const BACKOFF_MS = [250, 1000, 4000];
+
+export function backoffFor(attempt: number) {
+  return BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)] ?? 4000;
+}
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
 
 export type MeshEvent = {
   id: string;
@@ -167,7 +178,14 @@ async function upsertDelivery(
   event: MeshEvent,
   engine_id: string,
   handler: string,
-  patch: { status: string; attempts: number; last_error: string | null; dead_letter: boolean },
+  patch: {
+    status: string;
+    attempts: number;
+    last_error: string | null;
+    dead_letter: boolean;
+    next_attempt_at?: string | null;
+  },
+
 ) {
   await db.from("hos_event_deliveries").upsert(
     {
@@ -228,12 +246,25 @@ export async function deliver(
         attempts,
         last_error: null,
         dead_letter: false,
+        next_attempt_at: null,
       });
       return { engine_id: h.engine_id, handler: h.handler, status: "delivered", attempts };
     } catch (e) {
       lastError = e instanceof Error ? e.message : String(e);
+      if (attempts < MAX_ATTEMPTS) {
+        const wait = backoffFor(attempts - 1);
+        await upsertDelivery(db, userId, event, h.engine_id, h.handler, {
+          status: "failed",
+          attempts,
+          last_error: lastError,
+          dead_letter: false,
+          next_attempt_at: new Date(Date.now() + wait).toISOString(),
+        });
+        await sleep(wait);
+      }
     }
   }
+
 
   await upsertDelivery(db, userId, event, h.engine_id, h.handler, {
     status: "dead_letter",
@@ -286,12 +317,17 @@ export type PublishInput = {
 export async function publishAndDispatch(db: Db, userId: string, input: PublishInput) {
   await assertEngineActive(db, userId, input.source_engine);
 
+  const schema_version = input.schema_version ?? CURRENT_SCHEMA_VERSION;
+  // Refuse unknown types and malformed payloads before anything is persisted.
+  const payload = validateEvent(input.type, input.payload ?? {}, schema_version);
+
   const insert = {
     user_id: userId,
     type: input.type,
     source_engine: input.source_engine,
-    payload: (input.payload ?? {}) as never,
-    schema_version: input.schema_version ?? 1,
+    payload: payload as never,
+    schema_version,
+
     ...(input.correlation_id ? { correlation_id: input.correlation_id } : {}),
     ...(input.idempotency_key ? { idempotency_key: input.idempotency_key } : {}),
   };

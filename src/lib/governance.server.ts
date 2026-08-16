@@ -58,7 +58,6 @@ export function consentCoverage(rows: PermissionRow[]) {
   return Math.round((decided / merged.length) * 100);
 }
 
-/** True when an engine may read a scope, given persisted consent. */
-export function isAllowed(rows: PermissionRow[], engineId: string, scope: string) {
-  return rows.some((r) => r.engine_id === engineId && r.scope === scope && r.granted);
-}
+// NOTE: consent resolution has exactly one authority — `scopeAllowed` /
+// `assertScope` in `permissions.server.ts`. Do not add a second resolver here.
+

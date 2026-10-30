@@ -2,6 +2,11 @@
 -- Kernel-owned goals, authoritative Daily Operating Plan, decision/personal memory,
 -- and Human State provenance. Every table is user-owned and RLS protected.
 
+ALTER TABLE public.human_states
+  ADD COLUMN IF NOT EXISTS coverage numeric,
+  ADD COLUMN IF NOT EXISTS confidence numeric,
+  ADD COLUMN IF NOT EXISTS source_count integer NOT NULL DEFAULT 0;
+
 CREATE TABLE public.goals (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,

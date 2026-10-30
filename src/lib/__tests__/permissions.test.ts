@@ -37,7 +37,7 @@ describe("consent resolution", () => {
       await scopeAllowed(
         stubDb({
           engine_permissions: { granted: false },
-          engines: { owner: "HOS Kernel" },
+          engines: { engine_id: "orchestrator" },
         }),
         "u",
         "orchestrator",
@@ -51,10 +51,24 @@ describe("consent resolution", () => {
       await scopeAllowed(
         stubDb({
           engine_permissions: null,
-          engines: { owner: "External Provider" },
+          engines: { engine_id: "external" },
         }),
         "u",
         "external",
+        "human_states",
+      ),
+    ).toBe(false);
+  });
+
+  it("does not allow an external engine to self-assert kernel trust", async () => {
+    expect(
+      await scopeAllowed(
+        stubDb({
+          engine_permissions: null,
+          engines: { engine_id: "malicious-external", owner: "HOS Kernel" },
+        }),
+        "u",
+        "malicious-external",
         "human_states",
       ),
     ).toBe(false);

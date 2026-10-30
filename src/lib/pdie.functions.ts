@@ -10,6 +10,10 @@ import { assertScope } from "./permissions.server";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { outcomeHistoryPrompt, type OutcomeRow, type RecRow } from "./learning.server";
 import {
+  clampRecommendationConfidence,
+  decisionConfidenceCeiling,
+} from "./pdie.server";
+import {
   fuseSignals,
   rankPriorities,
   orchestratorPrompt,
@@ -44,7 +48,9 @@ Rules:
 - assumptions: 1-3 assumptions you are making about the operator's day/context.
 - alternatives: 1-3 other actions considered and why they were not chosen.
 - risks: 1-3 things that could go wrong if the operator follows this recommendation.
-- confidence: 0.0-1.0, honest.
+- confidence: 0.0-1.0, honest. Never imply certainty beyond the stated Human State coverage/confidence.
+- When Human State coverage is low or stale, prefer collecting missing evidence or making a conservative reversible recommendation.
+- Treat accepted/modified/dismissed past decisions as evidence about the operator; do not repeatedly recommend a previously rejected action without new evidence.
 - cost_axes: any of physical, cognitive, emotional, behavioral, lifestyle, operational that this may cost. Empty array if none.
 - trades_off: true when the recommendation gains one axis at the measurable expense of another.
 - sustainability_note: one sentence on the long-term effect. Never sacrifice long-term performance for a short-term win.
@@ -83,6 +89,7 @@ export const generateRecommendation = createServerFn({ method: "POST" })
       { data: learnedPatterns },
       { data: activeGoals },
       { data: personalMemory },
+      { data: recentDecisionMemory },
     ] = await Promise.all([
       supabase
         .from("human_states")
@@ -138,6 +145,11 @@ export const generateRecommendation = createServerFn({ method: "POST" })
         .eq("active", true)
         .order("confidence", { ascending: false, nullsFirst: false })
         .limit(12),
+      supabase
+        .from("decision_memory")
+        .select("decision_status, chosen_action, expected_outcome, actual_outcome, lesson, confidence, decided_at")
+        .order("decided_at", { ascending: false })
+        .limit(10),
     ]);
 
     const today = new Date().toISOString().slice(0, 10);
@@ -157,7 +169,7 @@ export const generateRecommendation = createServerFn({ method: "POST" })
 
 
     const hsvSummary = hsvRow
-      ? `HSV as of ${(hsvRow as Record<string, unknown>).as_of}, composite=${(hsvRow as Record<string, unknown>).composite ?? "null"}. ` +
+      ? `HSV as of ${(hsvRow as Record<string, unknown>).as_of}, composite=${(hsvRow as Record<string, unknown>).composite ?? "null"}, coverage=${(hsvRow as Record<string, unknown>).coverage ?? 0}, confidence=${(hsvRow as Record<string, unknown>).confidence ?? "unknown"}, sources=${(hsvRow as Record<string, unknown>).source_count ?? 0}. ` +
         (["physical", "cognitive", "emotional", "behavioral", "lifestyle", "operational"] as const)
           .map((f) => {
             const fam = (hsvRow as Record<string, unknown>)[f] as
@@ -219,6 +231,16 @@ export const generateRecommendation = createServerFn({ method: "POST" })
           .join("\n")
       : "No durable personal memory has been synthesized yet.";
 
+    const decisionMemorySummary = (recentDecisionMemory ?? []).length
+      ? "Recent human decisions and measured lessons:\n" +
+        (recentDecisionMemory ?? [])
+          .map(
+            (decision) =>
+              `- ${decision.decision_status}: ${decision.chosen_action}${decision.lesson ? ` · lesson: ${decision.lesson}` : ""}${decision.actual_outcome ? ` · outcome: ${decision.actual_outcome}` : ""}`,
+          )
+          .join("\n")
+      : "No prior decision memory yet.";
+
     const planSummary = (dailyItems ?? []).length
       ? "Authoritative Daily Operating Plan:\n" +
         (dailyItems ?? [])
@@ -248,6 +270,7 @@ export const generateRecommendation = createServerFn({ method: "POST" })
       patternSummary,
       goalSummary,
       memorySummary,
+      decisionMemorySummary,
       planSummary,
       `Recommendation type: ${data.type}.`,
 
@@ -289,9 +312,21 @@ export const generateRecommendation = createServerFn({ method: "POST" })
       }
     }
 
+    const stateRecord = hsvRow as Record<string, unknown> | null;
+    const confidenceCeiling = decisionConfidenceCeiling({
+      coverage: stateRecord?.coverage as number | null | undefined,
+      confidence: stateRecord?.confidence as number | null | undefined,
+      stateDate: stateRecord?.as_of as string | null | undefined,
+      today,
+    });
+    parsed.confidence = clampRecommendationConfidence(
+      parsed.confidence,
+      confidenceCeiling,
+    );
+
     // Persist
     const composite =
-      (hsvRow as Record<string, unknown> | null)?.composite as number | null | undefined;
+      stateRecord?.composite as number | null | undefined;
     const priority = composite !== null && composite !== undefined ? 100 - composite : 50;
 
     const { data: inserted, error: insertErr } = await supabase

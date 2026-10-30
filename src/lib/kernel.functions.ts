@@ -162,6 +162,25 @@ export const registerEngine = createServerFn({ method: "POST" })
       if (subErr) throw new Error(subErr.message);
     }
 
+    // Built-in executable capability adapters are persisted at install time so
+    // capability discovery never depends on a separate manual sync step.
+    const { capabilitySeeds } = await import("./capabilities.server");
+    const capabilities = capabilitySeeds().filter(
+      (item) => item.provider_engine_id === data.engine_id,
+    );
+    if (capabilities.length > 0) {
+      const { error: capabilityError } = await context.supabase
+        .from("engine_capabilities")
+        .upsert(
+          capabilities.map((item) => ({
+            ...item,
+            user_id: context.userId,
+          })),
+          { onConflict: "user_id,provider_engine_id,capability,version" },
+        );
+      if (capabilityError) throw new Error(capabilityError.message);
+    }
+
     await context.supabase.from("audit_log").insert({
       user_id: context.userId,
       action: existing ? "engine.manifest_synced" : "engine.registered",
@@ -172,6 +191,7 @@ export const registerEngine = createServerFn({ method: "POST" })
     return {
       ok: true,
       subscriptions: seeds.length,
+      capabilities: capabilities.length,
       lifecycle_state: existing?.lifecycle_state ?? "REGISTERED",
     };
   });

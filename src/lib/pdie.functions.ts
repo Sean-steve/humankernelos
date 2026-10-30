@@ -81,6 +81,8 @@ export const generateRecommendation = createServerFn({ method: "POST" })
       { data: pastRecs },
       { data: pastOutcomes },
       { data: learnedPatterns },
+      { data: activeGoals },
+      { data: personalMemory },
     ] = await Promise.all([
       supabase
         .from("human_states")
@@ -124,7 +126,34 @@ export const generateRecommendation = createServerFn({ method: "POST" })
         .eq("active", true)
         .order("confidence", { ascending: false })
         .limit(8),
+      supabase
+        .from("goals")
+        .select("id, title, description, horizon, priority, progress, target_date")
+        .eq("status", "active")
+        .order("priority", { ascending: true })
+        .limit(12),
+      supabase
+        .from("personal_memory")
+        .select("memory_type, summary, confidence, evidence")
+        .eq("active", true)
+        .order("confidence", { ascending: false, nullsFirst: false })
+        .limit(12),
     ]);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: dailyPlan } = await supabase
+      .from("daily_plans")
+      .select("id, status, context_snapshot")
+      .eq("plan_date", today)
+      .maybeSingle();
+    const { data: dailyItems } = dailyPlan
+      ? await supabase
+          .from("daily_plan_items")
+          .select("title, start_at, end_at, priority, protected, flexibility, status, source_type, source_engine")
+          .eq("plan_id", dailyPlan.id)
+          .in("status", ["planned", "current", "deferred"])
+          .order("start_at", { ascending: true, nullsFirst: false })
+      : { data: [] };
 
 
     const hsvSummary = hsvRow
@@ -170,6 +199,36 @@ export const generateRecommendation = createServerFn({ method: "POST" })
           .join("\n")
       : "No learned patterns yet.";
 
+    const goalSummary = (activeGoals ?? []).length
+      ? "Active goals, highest priority first:\n" +
+        (activeGoals ?? [])
+          .map(
+            (g) =>
+              `- ${g.title} [${g.horizon}, priority ${g.priority}, progress ${g.progress}%${g.target_date ? `, target ${g.target_date}` : ""}]`,
+          )
+          .join("\n")
+      : "No active goals configured.";
+
+    const memorySummary = (personalMemory ?? []).length
+      ? "Durable personal memory (use as evidence, never as certainty beyond its confidence):\n" +
+        (personalMemory ?? [])
+          .map(
+            (m) =>
+              `- [${m.memory_type}] ${m.summary} (confidence ${m.confidence ?? "unknown"})`,
+          )
+          .join("\n")
+      : "No durable personal memory has been synthesized yet.";
+
+    const planSummary = (dailyItems ?? []).length
+      ? "Authoritative Daily Operating Plan:\n" +
+        (dailyItems ?? [])
+          .map(
+            (item) =>
+              `- ${item.title} · ${item.start_at ?? "unscheduled"} → ${item.end_at ?? "unscheduled"} · ${item.status}${item.protected ? " · PROTECTED" : ""}`,
+          )
+          .join("\n")
+      : "No authoritative Daily Operating Plan items are currently scheduled.";
+
     // Art. IX: the Orchestrator fuses signals, resolves conflicts and ranks what
     // matters now. PDIE decides against that ranking, not a raw signal dump.
     const { fused, conflicts } = fuseSignals(
@@ -187,6 +246,9 @@ export const generateRecommendation = createServerFn({ method: "POST" })
       policySummary,
       historySummary,
       patternSummary,
+      goalSummary,
+      memorySummary,
+      planSummary,
       `Recommendation type: ${data.type}.`,
 
       data.context ? `Additional context: ${data.context}` : "",
@@ -276,20 +338,65 @@ export const listRecommendations = createServerFn({ method: "GET" })
 
 export const decideRecommendation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) =>
+  .inputValidator((input: unknown) =>
     z
       .object({
         id: z.string().uuid(),
-        status: z.enum(["accepted", "dismissed", "completed"]),
+        status: z.enum(["accepted", "modified", "dismissed", "completed"]),
+        chosen_action: z.string().min(1).max(1000).optional(),
+        expected_outcome: z.string().max(1000).optional(),
       })
-      .parse(data),
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
+    const { data: recommendation, error: readError } = await context.supabase
+      .from("recommendations")
+      .select(
+        "id, type, title, body, evidence, assumptions, alternatives, risks, confidence, state_alignment, priority, urgency",
+      )
+      .eq("id", data.id)
+      .eq("user_id", context.userId)
+      .single();
+    if (readError) throw new Error(readError.message);
+
+    const chosenAction =
+      data.chosen_action ??
+      (data.status === "dismissed" ? "Recommendation dismissed" : recommendation.body);
+    if (data.status === "modified" && !data.chosen_action) {
+      throw new Error("A modified recommendation requires chosen_action.");
+    }
+
+    const decidedAt = new Date().toISOString();
     const { error } = await context.supabase
       .from("recommendations")
-      .update({ status: data.status, decided_at: new Date().toISOString() })
+      .update({ status: data.status, decided_at: decidedAt })
       .eq("id", data.id)
       .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
+
+    const { error: memoryError } = await context.supabase
+      .from("decision_memory")
+      .insert({
+        user_id: context.userId,
+        recommendation_id: recommendation.id,
+        context_snapshot: {
+          recommendation_type: recommendation.type,
+          title: recommendation.title,
+          evidence: recommendation.evidence,
+          assumptions: recommendation.assumptions,
+          risks: recommendation.risks,
+          state_alignment: recommendation.state_alignment,
+          priority: recommendation.priority,
+          urgency: recommendation.urgency,
+        } as never,
+        options: recommendation.alternatives as never,
+        chosen_action: chosenAction,
+        decision_status: data.status,
+        expected_outcome: data.expected_outcome ?? null,
+        confidence: recommendation.confidence,
+        decided_at: decidedAt,
+      });
+    if (memoryError) throw new Error(memoryError.message);
+
     return { ok: true };
   });

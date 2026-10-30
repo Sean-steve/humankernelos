@@ -11,6 +11,7 @@ import {
   type RawSignal,
 } from "./orchestrator.server";
 import { adherenceRate, type OutcomeRow } from "./learning.server";
+import { refreshLearningMemory } from "./learning-memory.server";
 import {
   assertEngineActive,
   engineIsActive,
@@ -153,6 +154,10 @@ const learningAdherence: MeshHandler = {
       confidence: Math.min(0.9, 0.4 + (outcomes?.length ?? 0) * 0.05),
     });
     if (signalError) throw new Error(signalError.message);
+
+    // Measured outcomes are the only source allowed to promote learning into
+    // durable personal pattern memory.
+    await refreshLearningMemory(db, userId);
   },
 };
 

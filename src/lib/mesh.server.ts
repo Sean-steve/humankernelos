@@ -17,6 +17,7 @@ import {
   scopeAllowed,
   type Db,
 } from "./permissions.server";
+import { materializeHumanState } from "./hsie.server";
 import {
   EVENT_SCHEMAS,
   CURRENT_SCHEMA_VERSION,
@@ -104,6 +105,10 @@ export async function runAndPersistOrchestrator(db: Db, userId: string) {
     );
     if (cErr) throw new Error(cErr.message);
   }
+
+  // The Orchestrator and HSIE share one fused truth. Every successful fusion
+  // materializes the canonical HSV and its evidence trail.
+  await materializeHumanState(db, userId, fused);
 
   return {
     run_id: run.id as string,

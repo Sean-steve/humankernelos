@@ -280,6 +280,18 @@ export function createEngineSdk(opts: SdkOptions) {
       return scopeAllowed(db, userId, engineId, scope);
     },
 
+    async requestCapabilityAccess(
+      providerEngineId: string,
+      capability: string,
+      reason?: string,
+    ) {
+      const scope = `capability:${providerEngineId}.${capability}`;
+      return this.requestPermission(
+        scope,
+        reason ?? `Required to invoke ${providerEngineId}.${capability}`,
+      );
+    },
+
     async publishEvent(input: Omit<PublishInput, "source_engine">) {
       await assertEngineActive(db, userId, engineId);
       const result = await publishAndDispatch(db, userId, {

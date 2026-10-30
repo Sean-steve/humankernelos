@@ -257,7 +257,7 @@ function SummaryCard({
   eyebrow: string;
   title: string;
   detail: string;
-  to: string;
+  to: "/plan" | "/me";
 }) {
   return (
     <Link

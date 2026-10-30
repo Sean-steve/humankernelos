@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const InvokeInput = z.object({
   consumer_engine_id: z.string().min(1).max(64),
+  provider_engine_id: z.string().min(1).max(64).optional(),
   capability: z.string().min(1).max(64),
   version: z.string().max(20).optional(),
   input: z.unknown().optional(),
@@ -13,7 +14,9 @@ const InvokeInput = z.object({
 export const listCapabilities = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { CAPABILITIES, capabilitySeeds } = await import("./capabilities.server");
+    const { capabilitySeeds } = await import("./capabilities.server");
+    const { listRuntimeCapabilities } = await import("./runtime/registry.server");
+    const runtime = listRuntimeCapabilities();
     const [{ data: registered }, { data: invocations }] = await Promise.all([
       context.supabase
         .from("engine_capabilities")
@@ -26,7 +29,7 @@ export const listCapabilities = createServerFn({ method: "GET" })
     ]);
 
     return {
-      declared: CAPABILITIES.map((c) => ({
+      declared: runtime.map((c) => ({
         id: c.id,
         provider_engine_id: c.provider_engine_id,
         capability: c.capability,
@@ -61,6 +64,7 @@ export const invoke = createServerFn({ method: "POST" })
     const { invokeCapability } = await import("./capabilities.server");
     const result = await invokeCapability(context.supabase, context.userId, {
       consumer_engine_id: data.consumer_engine_id,
+      ...(data.provider_engine_id ? { provider_engine_id: data.provider_engine_id } : {}),
       capability: data.capability,
       ...(data.version ? { version: data.version } : {}),
       input: data.input ?? {},

@@ -781,6 +781,387 @@ export type Database = {
         }
         Relationships: []
       }
+      goals: {
+        Row: {
+          created_at: string
+          description: string | null
+          horizon: string
+          id: string
+          metadata: Json
+          priority: number
+          progress: number
+          status: string
+          target_date: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          horizon?: string
+          id?: string
+          metadata?: Json
+          priority?: number
+          progress?: number
+          status?: string
+          target_date?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          horizon?: string
+          id?: string
+          metadata?: Json
+          priority?: number
+          progress?: number
+          status?: string
+          target_date?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      daily_plans: {
+        Row: {
+          context_snapshot: Json
+          created_at: string
+          generated_at: string | null
+          id: string
+          plan_date: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          context_snapshot?: Json
+          created_at?: string
+          generated_at?: string | null
+          id?: string
+          plan_date: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          context_snapshot?: Json
+          created_at?: string
+          generated_at?: string | null
+          id?: string
+          plan_date?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      daily_plan_items: {
+        Row: {
+          created_at: string
+          description: string | null
+          end_at: string | null
+          flexibility: string
+          id: string
+          metadata: Json
+          plan_id: string
+          priority: number
+          protected: boolean
+          source_engine: string | null
+          source_id: string | null
+          source_type: string
+          start_at: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          end_at?: string | null
+          flexibility?: string
+          id?: string
+          metadata?: Json
+          plan_id: string
+          priority?: number
+          protected?: boolean
+          source_engine?: string | null
+          source_id?: string | null
+          source_type?: string
+          start_at?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          end_at?: string | null
+          flexibility?: string
+          id?: string
+          metadata?: Json
+          plan_id?: string
+          priority?: number
+          protected?: boolean
+          source_engine?: string | null
+          source_id?: string | null
+          source_type?: string
+          start_at?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_plan_items_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "daily_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_plan_proposals: {
+        Row: {
+          accepted_item_id: string | null
+          correlation_id: string | null
+          created_at: string
+          decided_at: string | null
+          description: string | null
+          flexibility: string
+          id: string
+          minimum_duration_min: number | null
+          plan_date: string
+          preferred_duration_min: number | null
+          priority: number
+          protected: boolean
+          requested_end: string | null
+          requested_start: string | null
+          resolution: Json
+          source_engine: string
+          source_id: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accepted_item_id?: string | null
+          correlation_id?: string | null
+          created_at?: string
+          decided_at?: string | null
+          description?: string | null
+          flexibility?: string
+          id?: string
+          minimum_duration_min?: number | null
+          plan_date: string
+          preferred_duration_min?: number | null
+          priority?: number
+          protected?: boolean
+          requested_end?: string | null
+          requested_start?: string | null
+          resolution?: Json
+          source_engine: string
+          source_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accepted_item_id?: string | null
+          correlation_id?: string | null
+          created_at?: string
+          decided_at?: string | null
+          description?: string | null
+          flexibility?: string
+          id?: string
+          minimum_duration_min?: number | null
+          plan_date?: string
+          preferred_duration_min?: number | null
+          priority?: number
+          protected?: boolean
+          requested_end?: string | null
+          requested_start?: string | null
+          resolution?: Json
+          source_engine?: string
+          source_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_plan_proposals_accepted_item_id_fkey"
+            columns: ["accepted_item_id"]
+            isOneToOne: false
+            referencedRelation: "daily_plan_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decision_memory: {
+        Row: {
+          actual_outcome: string | null
+          chosen_action: string
+          confidence: number | null
+          context_snapshot: Json
+          created_at: string
+          decided_at: string
+          decision_status: string
+          expected_outcome: string | null
+          id: string
+          lesson: string | null
+          measured_at: string | null
+          options: Json
+          recommendation_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actual_outcome?: string | null
+          chosen_action: string
+          confidence?: number | null
+          context_snapshot?: Json
+          created_at?: string
+          decided_at?: string
+          decision_status: string
+          expected_outcome?: string | null
+          id?: string
+          lesson?: string | null
+          measured_at?: string | null
+          options?: Json
+          recommendation_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actual_outcome?: string | null
+          chosen_action?: string
+          confidence?: number | null
+          context_snapshot?: Json
+          created_at?: string
+          decided_at?: string
+          decision_status?: string
+          expected_outcome?: string | null
+          id?: string
+          lesson?: string | null
+          measured_at?: string | null
+          options?: Json
+          recommendation_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_memory_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "recommendations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      personal_memory: {
+        Row: {
+          active: boolean
+          confidence: number | null
+          created_at: string
+          evidence: Json
+          first_observed_at: string
+          id: string
+          last_observed_at: string
+          memory_key: string
+          memory_type: string
+          summary: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          confidence?: number | null
+          created_at?: string
+          evidence?: Json
+          first_observed_at?: string
+          id?: string
+          last_observed_at?: string
+          memory_key: string
+          memory_type: string
+          summary: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          confidence?: number | null
+          created_at?: string
+          evidence?: Json
+          first_observed_at?: string
+          id?: string
+          last_observed_at?: string
+          memory_key?: string
+          memory_type?: string
+          summary?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      human_state_evidence: {
+        Row: {
+          axis: string
+          confidence: number | null
+          id: string
+          normalized_value: number | null
+          raw_value: number | null
+          recency_weight: number | null
+          recorded_at: string
+          reliability: number | null
+          source_engine: string
+          source_key: string
+          state_date: string
+          trend: string | null
+          user_id: string
+        }
+        Insert: {
+          axis: string
+          confidence?: number | null
+          id?: string
+          normalized_value?: number | null
+          raw_value?: number | null
+          recency_weight?: number | null
+          recorded_at?: string
+          reliability?: number | null
+          source_engine: string
+          source_key: string
+          state_date: string
+          trend?: string | null
+          user_id: string
+        }
+        Update: {
+          axis?: string
+          confidence?: number | null
+          id?: string
+          normalized_value?: number | null
+          raw_value?: number | null
+          recency_weight?: number | null
+          recorded_at?: string
+          reliability?: number | null
+          source_engine?: string
+          source_key?: string
+          state_date?: string
+          trend?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       human_states: {
         Row: {
           as_of: string

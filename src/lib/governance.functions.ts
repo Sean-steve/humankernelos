@@ -10,7 +10,7 @@ export const getGovernance = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
 
-    const [{ data: perms }, { data: audit }] = await Promise.all([
+    const [{ data: perms }, { data: audit }, { data: engines }] = await Promise.all([
       supabase
         .from("engine_permissions")
         .select("engine_id, scope, granted, reason, updated_at")
@@ -21,13 +21,23 @@ export const getGovernance = createServerFn({ method: "GET" })
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(50),
+      supabase
+        .from("engines")
+        .select("engine_id, name, purpose, permissions")
+        .eq("user_id", userId),
     ]);
 
     const rows = (perms ?? []) as PermissionRow[];
+    const installed = (engines ?? []).map((engine) => ({
+      engine_id: engine.engine_id,
+      name: engine.name,
+      purpose: engine.purpose,
+      permissions: engine.permissions,
+    }));
 
     return {
-      permissions: mergeConsent(rows),
-      coverage: consentCoverage(rows),
+      permissions: mergeConsent(rows, installed),
+      coverage: consentCoverage(rows, installed),
       audit: (audit ?? []).map((a) => ({
         id: a.id as string,
         action: a.action as string,

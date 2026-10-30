@@ -187,19 +187,17 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
 
           <div className="flex flex-col gap-3">
-            <div className="rounded-lg border hairline bg-surface/60 p-4">
+            <Link
+              to="/engines"
+              className="rounded-lg border hairline bg-surface/60 p-4 text-xs transition-colors hover:bg-surface"
+            >
               <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                Connected systems
+                Operating engines
               </div>
-              <div className="mt-2 space-y-1.5 text-xs text-muted-foreground">
-                {["Body OS", "Trading OS", "Finance OS", "Nutrition"].map((s) => (
-                  <div key={s} className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                    {s}
-                  </div>
-                ))}
+              <div className="mt-1 text-foreground/90">
+                View installed engines and their real runtime status →
               </div>
-            </div>
+            </Link>
             <AccountBadge />
             <Link
               to="/settings"

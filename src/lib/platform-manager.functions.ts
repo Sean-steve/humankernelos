@@ -87,20 +87,51 @@ export const validateEngineInstall = createServerFn({ method: "POST" })
     z.object({ engine_id: z.string().min(1).max(64) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { resolveDependencies } = await import("./platform-manager.server");
-    const { REGISTERED_ENGINES } = await import("./engines/contract");
+    const { resolveDependencies, transition } = await import("./platform-manager.server");
+    const { validateEngineManifest } = await import("./engines/manifest");
 
-    const descriptor = REGISTERED_ENGINES.find((e) => e.id === data.engine_id);
-    if (!descriptor) throw new Error(`Unknown engine "${data.engine_id}".`);
+    const { data: row, error: rowError } = await context.supabase
+      .from("engines")
+      .select(
+        "engine_id, name, version, purpose, owner, status, lifecycle_state, capabilities, data_owned, events_published, events_consumed, required_signals, published_signals, dependencies, permissions",
+      )
+      .eq("user_id", context.userId)
+      .eq("engine_id", data.engine_id)
+      .maybeSingle();
+    if (rowError) throw new Error(rowError.message);
+    if (!row) throw new Error(`Engine "${data.engine_id}" is not registered.`);
 
-    const { data: installed } = await context.supabase
+    const descriptor = validateEngineManifest({
+      id: row.engine_id,
+      name: row.name,
+      version: row.version,
+      purpose: row.purpose ?? "No purpose declared",
+      owner: row.owner ?? "Unknown owner",
+      status: row.status,
+      capabilities: row.capabilities ?? [],
+      dataOwned: row.data_owned ?? [],
+      eventsPublished: row.events_published ?? [],
+      eventsConsumed: row.events_consumed ?? [],
+      requiredSignals: row.required_signals ?? [],
+      publishedSignals: row.published_signals ?? [],
+      dependencies: row.dependencies ?? [],
+      permissions: row.permissions ?? {
+        dataRequested: [],
+        dataProvided: [],
+        dataProhibited: [],
+      },
+    });
+
+    const { data: installed, error: installedError } = await context.supabase
       .from("engines")
       .select("engine_id")
-      .eq("user_id", context.userId);
+      .eq("user_id", context.userId)
+      .neq("lifecycle_state", "UNINSTALLED");
+    if (installedError) throw new Error(installedError.message);
 
     const result = resolveDependencies(
       descriptor,
-      (installed ?? []).map((r) => r.engine_id),
+      (installed ?? []).map((item) => item.engine_id),
     );
 
     if (!result.ok) {
@@ -112,6 +143,17 @@ export const validateEngineInstall = createServerFn({ method: "POST" })
       });
       return { ok: false as const, reasons: result.reasons };
     }
+
+    if (row.lifecycle_state === "REGISTERED") {
+      await transition(
+        context.supabase,
+        context.userId,
+        data.engine_id,
+        "VALIDATED",
+        "manifest and dependencies validated",
+      );
+    }
+
     return { ok: true as const, reasons: [] as string[] };
   });
 

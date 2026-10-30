@@ -94,47 +94,86 @@ export const registerEngine = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => RegisterEngineInput.parse(d))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
-      .from("engines")
-      .upsert(
-        {
-          user_id: context.userId,
-          engine_id: data.engine_id,
-          name: data.name,
-          version: data.version,
-          purpose: data.purpose ?? null,
-          owner: data.owner ?? null,
-          status: data.status,
-          capabilities: data.capabilities as never,
-          data_owned: data.data_owned as never,
-          events_published: data.events_published as never,
-          events_consumed: data.events_consumed as never,
-          required_signals: data.required_signals as never,
-          published_signals: data.published_signals as never,
-          dependencies: data.dependencies as never,
-          permissions: data.permissions as never,
-        },
-        { onConflict: "user_id,engine_id" },
-      );
-    if (error) throw new Error(error.message);
+    const { PLATFORM_VERSION, SDK_VERSION, stateIsOperational } = await import(
+      "./platform-manager.server"
+    );
 
-    // Materialise this engine's declared subscriptions into the mesh.
+    const { data: existing, error: existingError } = await context.supabase
+      .from("engines")
+      .select("lifecycle_state")
+      .eq("user_id", context.userId)
+      .eq("engine_id", data.engine_id)
+      .maybeSingle();
+    if (existingError) throw new Error(existingError.message);
+
+    const metadata = {
+      name: data.name,
+      version: data.version,
+      purpose: data.purpose ?? null,
+      owner: data.owner ?? null,
+      capabilities: data.capabilities as never,
+      data_owned: data.data_owned as never,
+      events_published: data.events_published as never,
+      events_consumed: data.events_consumed as never,
+      required_signals: data.required_signals as never,
+      published_signals: data.published_signals as never,
+      dependencies: data.dependencies as never,
+      permissions: data.permissions as never,
+      platform_version: PLATFORM_VERSION,
+      sdk_version: SDK_VERSION,
+    };
+
+    if (existing) {
+      const { error } = await context.supabase
+        .from("engines")
+        .update(metadata)
+        .eq("user_id", context.userId)
+        .eq("engine_id", data.engine_id);
+      if (error) throw new Error(error.message);
+    } else {
+      const { error } = await context.supabase.from("engines").insert({
+        user_id: context.userId,
+        engine_id: data.engine_id,
+        ...metadata,
+        status: "inactive",
+        lifecycle_state: "REGISTERED",
+        health: "disabled",
+      });
+      if (error) throw new Error(error.message);
+    }
+
+    // Materialise runtime-declared subscriptions, but lifecycle decides whether
+    // they are enabled. Registration itself never grants execution authority.
     const seeds = subscriptionSeeds().filter((x) => x.engine_id === data.engine_id);
     if (seeds.length > 0) {
+      const operational = existing
+        ? stateIsOperational(existing.lifecycle_state as never)
+        : false;
       const { error: subErr } = await context.supabase.from("engine_subscriptions").upsert(
         seeds.map((x) => ({
           user_id: context.userId,
           engine_id: x.engine_id,
           event_type: x.event_type,
           handler: x.handler,
-          enabled: data.status === "active",
+          enabled: operational,
         })),
         { onConflict: "user_id,engine_id,event_type,handler" },
       );
       if (subErr) throw new Error(subErr.message);
     }
 
-    return { ok: true, subscriptions: seeds.length };
+    await context.supabase.from("audit_log").insert({
+      user_id: context.userId,
+      action: existing ? "engine.manifest_synced" : "engine.registered",
+      resource: data.engine_id,
+      detail: { version: data.version, requested_status: data.status } as never,
+    });
+
+    return {
+      ok: true,
+      subscriptions: seeds.length,
+      lifecycle_state: existing?.lifecycle_state ?? "REGISTERED",
+    };
   });
 
 export const listEngines = createServerFn({ method: "GET" })
@@ -157,28 +196,63 @@ export const setEngineStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => SetStatusInput.parse(d))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
+    const { transition, uninstall, stateIsOperational } = await import(
+      "./platform-manager.server"
+    );
+    const { data: row, error } = await context.supabase
       .from("engines")
-      .update({ status: data.status })
+      .select("lifecycle_state")
       .eq("user_id", context.userId)
-      .eq("engine_id", data.engine_id);
+      .eq("engine_id", data.engine_id)
+      .maybeSingle();
     if (error) throw new Error(error.message);
+    if (!row) throw new Error(`Engine "${data.engine_id}" is not installed.`);
 
-    // Lifecycle is real: a disabled engine stops receiving events.
-    await context.supabase
-      .from("engine_subscriptions")
-      .update({ enabled: data.status === "active" })
-      .eq("user_id", context.userId)
-      .eq("engine_id", data.engine_id);
+    const state = row.lifecycle_state as
+      | "DISCOVERED"
+      | "INSTALLED"
+      | "REGISTERED"
+      | "VALIDATED"
+      | "ENABLED"
+      | "RUNNING"
+      | "SUSPENDED"
+      | "DISABLED"
+      | "UNINSTALLED";
 
-    await context.supabase.from("audit_log").insert({
-      user_id: context.userId,
-      action: "engine.status_changed",
-      resource: data.engine_id,
-      detail: { status: data.status } as never,
-    });
+    if (data.status === "deprecated") {
+      return uninstall(context.supabase, context.userId, data.engine_id);
+    }
 
-    return { ok: true };
+    if (data.status === "inactive") {
+      if (stateIsOperational(state) || state === "SUSPENDED") {
+        return transition(
+          context.supabase,
+          context.userId,
+          data.engine_id,
+          "DISABLED",
+          "legacy status control mapped to lifecycle",
+        );
+      }
+      return { engine_id: data.engine_id, state, unchanged: true };
+    }
+
+    if (state === "VALIDATED" || state === "SUSPENDED") {
+      return transition(
+        context.supabase,
+        context.userId,
+        data.engine_id,
+        "ENABLED",
+        "legacy status control mapped to lifecycle",
+      );
+    }
+
+    if (stateIsOperational(state)) {
+      return { engine_id: data.engine_id, state, unchanged: true };
+    }
+
+    throw new Error(
+      `Engine "${data.engine_id}" must pass Platform Manager validation before activation.`,
+    );
   });
 
 export const getLatestSignals = createServerFn({ method: "GET" })

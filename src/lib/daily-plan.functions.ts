@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { assertEngineActive, assertScope } from "./permissions.server";
+import { assertEngineActive, assertScope, type Db } from "./permissions.server";
 import { protectedConflict, validateWindow } from "./daily-plan.server";
 
 function localDate() {
@@ -9,7 +9,7 @@ function localDate() {
 }
 
 async function ensurePlan(
-  context: { supabase: any; userId: string },
+  context: { supabase: Db; userId: string },
   planDate: string,
 ) {
   const { supabase, userId } = context;
@@ -73,7 +73,7 @@ export const getDailyPlan = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) => DateInput.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const planDate = data.plan_date ?? localDate();
-    const plan = await ensurePlan(context as never, planDate);
+    const plan = await ensurePlan({ supabase: context.supabase, userId: context.userId }, planDate);
 
     const [{ data: items, error: itemsError }, { data: proposals, error: proposalsError }] =
       await Promise.all([
@@ -119,7 +119,7 @@ export const upsertDailyPlanItem = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     validateWindow(data.start_at, data.end_at);
     const planDate = data.plan_date ?? localDate();
-    const plan = await ensurePlan(context as never, planDate);
+    const plan = await ensurePlan({ supabase: context.supabase, userId: context.userId }, planDate);
 
     const { data: existing, error: existingError } = await context.supabase
       .from("daily_plan_items")
@@ -292,7 +292,7 @@ export const decideDailyPlanProposal = createServerFn({ method: "POST" })
       data.decision === "modified" ? data.end_at ?? proposal.requested_end : proposal.requested_end;
     validateWindow(startAt, endAt);
 
-    const plan = await ensurePlan(context as never, proposal.plan_date);
+    const plan = await ensurePlan({ supabase: context.supabase, userId: context.userId }, proposal.plan_date);
     const { data: existing, error: existingError } = await context.supabase
       .from("daily_plan_items")
       .select("id, start_at, end_at, protected")
@@ -353,7 +353,7 @@ export const activateDailyPlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => DateInput.parse(input ?? {}))
   .handler(async ({ data, context }) => {
-    const plan = await ensurePlan(context as never, data.plan_date ?? localDate());
+    const plan = await ensurePlan({ supabase: context.supabase, userId: context.userId }, data.plan_date ?? localDate());
     const { data: active, error } = await context.supabase
       .from("daily_plans")
       .update({ status: "active", generated_at: new Date().toISOString() })

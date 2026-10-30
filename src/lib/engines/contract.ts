@@ -1,5 +1,9 @@
 // Engine Contract — HOS Constitution Art. V + Architecture Ch. 7.
 // The Kernel never reads engine-internal tables. It reads only engine_signals.
+//
+// NOTE: REGISTERED_ENGINES remains a compile-time catalogue in the current
+// foundation. Persisted/runtime-authoritative registration is Phase-2 work.
+// Do not treat this array as the final plug-and-play engine architecture.
 
 export type HosEventType =
   | "MealLogged"
@@ -97,10 +101,11 @@ export const REGISTERED_ENGINES: EngineDescriptor[] = [
   },
   {
     id: "routine",
-    name: "Routine Engine",
+    name: "Legacy Routine Tracker",
     version: "0.2.0",
-    purpose: "Track daily protocol adherence; emit streak and completion signals.",
-    owner: "HOS Core",
+    purpose:
+      "Compatibility tracker for simple routine completions and streaks. This is not the authoritative Routine Execution OS / HEE and must not be expanded into that domain.",
+    owner: "HOS Core (Legacy Compatibility)",
     status: "active",
     capabilities: ["mark_complete", "streak_calculation"],
     dataOwned: ["routine_completions"],

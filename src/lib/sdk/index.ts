@@ -1,16 +1,30 @@
 // Engine SDK (HIS-007). Server-only façade.
 //
-// An engine receives exactly one object: the SDK context. It grants events,
-// scoped state reads, scoped storage, capability invocation, scoped AI,
-// identity, and structured logging — and nothing else. Engine code must never
-// touch tables directly; every path here is consent- and lifecycle-checked.
+// Engines receive one constrained SDK context. Persisted installation/lifecycle
+// remains authoritative; executable capability/event adapters are registered
+// through the runtime registry rather than hardcoded into Kernel routing.
 
 import type { Db } from "../permissions.server";
 import { assertEngineActive, assertScope, scopeAllowed } from "../permissions.server";
 import { publishAndDispatch, type PublishInput } from "../mesh.server";
 import { invokeCapability } from "../capabilities.server";
-import { heartbeat } from "../platform-manager.server";
+import {
+  heartbeat,
+  PLATFORM_VERSION,
+  SDK_VERSION,
+  stateIsOperational,
+  type LifecycleState,
+} from "../platform-manager.server";
 import { REGISTERED_ENGINES, type EngineDescriptor } from "../engines/contract";
+import { validateEngineManifest } from "../engines/manifest";
+import {
+  registerRuntimeCapability,
+  registerRuntimeEventHandler,
+  registerRuntimeEventSchema,
+  type RuntimeCapability,
+  type RuntimeEventHandler,
+  type RuntimeEventSchema,
+} from "../runtime/registry.server";
 
 export type EngineSdk = ReturnType<typeof createEngineSdk>;
 
@@ -29,14 +43,46 @@ export class SdkError extends Error {
   }
 }
 
-/** Human State axes an engine may read, gated by consent on `human_states`. */
-export type StateAxis = "physical" | "cognitive" | "emotional" | "behavioral" | "lifestyle" | "operational";
+export type StateAxis =
+  | "physical"
+  | "cognitive"
+  | "emotional"
+  | "behavioral"
+  | "lifestyle"
+  | "operational";
 
 export function createEngineSdk(opts: SdkOptions) {
   const { db, userId, engineId } = opts;
 
+  async function installedManifest() {
+    const { data, error } = await db
+      .from("engines")
+      .select(
+        "engine_id, name, version, purpose, owner, status, lifecycle_state, capabilities, data_owned, events_published, events_consumed, required_signals, published_signals, dependencies, permissions",
+      )
+      .eq("user_id", userId)
+      .eq("engine_id", engineId)
+      .maybeSingle();
+    if (error) throw new SdkError(error.message);
+    return data;
+  }
+
+  async function requireInstalled() {
+    const manifest = await installedManifest();
+    if (!manifest) {
+      throw new SdkError(
+        `Engine "${engineId}" must register its manifest before using SDK registration APIs.`,
+      );
+    }
+    return manifest;
+  }
+
   const logger = {
-    async log(level: "debug" | "info" | "warn" | "error", message: string, context: Record<string, unknown> = {}) {
+    async log(
+      level: "debug" | "info" | "warn" | "error",
+      message: string,
+      context: Record<string, unknown> = {},
+    ) {
       await db.from("engine_logs").insert({
         user_id: userId,
         engine_id: engineId,
@@ -46,9 +92,12 @@ export function createEngineSdk(opts: SdkOptions) {
         ...(opts.correlationId ? { correlation_id: opts.correlationId } : {}),
       });
     },
-    info: (m: string, c?: Record<string, unknown>) => logger.log("info", m, c ?? {}),
-    warn: (m: string, c?: Record<string, unknown>) => logger.log("warn", m, c ?? {}),
-    error: (m: string, c?: Record<string, unknown>) => logger.log("error", m, c ?? {}),
+    info: (m: string, c?: Record<string, unknown>) =>
+      logger.log("info", m, c ?? {}),
+    warn: (m: string, c?: Record<string, unknown>) =>
+      logger.log("warn", m, c ?? {}),
+    error: (m: string, c?: Record<string, unknown>) =>
+      logger.log("error", m, c ?? {}),
   };
 
   return {
@@ -57,39 +106,165 @@ export function createEngineSdk(opts: SdkOptions) {
     correlationId: opts.correlationId ?? null,
     logger,
 
-    /** Declared descriptor, for self-inspection. */
+    /** Package-catalogue descriptor only; not runtime authority. */
     descriptor(): EngineDescriptor | undefined {
       return REGISTERED_ENGINES.find((e) => e.id === engineId);
     },
 
-    /** Persist the engine descriptor from outside core (no core edits needed). */
+    /** Persisted manifest/lifecycle — the runtime authority for this user. */
+    manifest: installedManifest,
+
+    /**
+     * Register/update the engine manifest without auto-activating the engine.
+     * First registration enters REGISTERED/inactive; Platform Manager controls
+     * subsequent lifecycle transitions.
+     */
     async register(descriptor: EngineDescriptor) {
-      const { error } = await db.from("engines").upsert(
+      const manifest = validateEngineManifest(descriptor);
+      if (manifest.id !== engineId) {
+        throw new SdkError(
+          `SDK engine id "${engineId}" cannot register manifest "${manifest.id}".`,
+        );
+      }
+
+      const existing = await installedManifest();
+      const metadata = {
+        name: manifest.name,
+        version: manifest.version,
+        purpose: manifest.purpose,
+        owner: manifest.owner,
+        capabilities: manifest.capabilities as never,
+        data_owned: manifest.dataOwned as never,
+        events_published: manifest.eventsPublished as never,
+        events_consumed: manifest.eventsConsumed as never,
+        required_signals: manifest.requiredSignals as never,
+        published_signals: manifest.publishedSignals as never,
+        dependencies: manifest.dependencies as never,
+        permissions: manifest.permissions as never,
+        platform_version: PLATFORM_VERSION,
+        sdk_version: SDK_VERSION,
+      };
+
+      if (existing) {
+        const { error } = await db
+          .from("engines")
+          .update(metadata)
+          .eq("user_id", userId)
+          .eq("engine_id", engineId);
+        if (error) throw new SdkError(error.message);
+      } else {
+        const { error } = await db.from("engines").insert({
+          user_id: userId,
+          engine_id: engineId,
+          ...metadata,
+          status: "inactive",
+          lifecycle_state: "REGISTERED",
+          health: "disabled",
+        });
+        if (error) throw new SdkError(error.message);
+      }
+
+      await db.from("audit_log").insert({
+        user_id: userId,
+        action: existing ? "engine.manifest_updated" : "engine.registered",
+        resource: engineId,
+        detail: { version: manifest.version } as never,
+      });
+
+      return {
+        ok: true,
+        lifecycle_state: existing?.lifecycle_state ?? "REGISTERED",
+      };
+    },
+
+    /** Register executable capability code + persisted discovery metadata. */
+    async registerCapability(
+      capability: Omit<RuntimeCapability, "provider_engine_id">,
+    ) {
+      await requireInstalled();
+      const runtime: RuntimeCapability = {
+        ...capability,
+        provider_engine_id: engineId,
+      };
+      registerRuntimeCapability(runtime);
+
+      const { error } = await db.from("engine_capabilities").upsert(
         {
           user_id: userId,
-          engine_id: descriptor.id,
-          name: descriptor.name,
-          version: descriptor.version,
-          purpose: descriptor.purpose,
-          owner: descriptor.owner,
-          status: descriptor.status,
-          capabilities: descriptor.capabilities as never,
-          data_owned: descriptor.dataOwned as never,
-          events_published: descriptor.eventsPublished as never,
-          events_consumed: descriptor.eventsConsumed as never,
-          required_signals: descriptor.requiredSignals as never,
-          published_signals: descriptor.publishedSignals as never,
-          dependencies: descriptor.dependencies as never,
-          permissions: descriptor.permissions as never,
+          provider_engine_id: engineId,
+          capability: runtime.capability,
+          version: runtime.version,
+          required_permission: runtime.required_permission,
+          input_schema: { runtime_validator: true } as never,
+          output_schema: { runtime_validator: true } as never,
+          status: runtime.status,
         },
-        { onConflict: "user_id,engine_id" },
+        {
+          onConflict: "user_id,provider_engine_id,capability,version",
+        },
       );
       if (error) throw new SdkError(error.message);
-      return { ok: true };
+
+      return {
+        capability: runtime.capability,
+        version: runtime.version,
+        provider_engine_id: engineId,
+      };
+    },
+
+    /** Register a versioned event validator and persist its schema catalogue row. */
+    async registerEventSchema(schema: RuntimeEventSchema) {
+      await requireInstalled();
+      registerRuntimeEventSchema(schema);
+
+      const { error } = await db.from("event_schemas").upsert(
+        {
+          user_id: userId,
+          event_type: schema.type,
+          schema_version: schema.version,
+          description: schema.description,
+          payload_schema: { runtime_validator: true } as never,
+          active: true,
+        },
+        { onConflict: "user_id,event_type,schema_version" },
+      );
+      if (error) throw new SdkError(error.message);
+
+      return { event_type: schema.type, schema_version: schema.version };
+    },
+
+    /** Register executable event handling + persisted subscription metadata. */
+    async subscribeEvent(
+      eventType: string,
+      handler: Omit<RuntimeEventHandler, "engine_id">,
+    ) {
+      const manifest = await requireInstalled();
+      const runtime: RuntimeEventHandler = {
+        ...handler,
+        engine_id: engineId,
+      };
+      registerRuntimeEventHandler(eventType, runtime);
+
+      const { error } = await db.from("engine_subscriptions").upsert(
+        {
+          user_id: userId,
+          engine_id: engineId,
+          event_type: eventType,
+          handler: runtime.handler,
+          enabled: stateIsOperational(
+            manifest.lifecycle_state as LifecycleState,
+          ),
+        },
+        { onConflict: "user_id,engine_id,event_type,handler" },
+      );
+      if (error) throw new SdkError(error.message);
+
+      return { event_type: eventType, handler: runtime.handler };
     },
 
     /** Request a consent scope; the operator still decides in Governance. */
     async requestPermission(scope: string, reason?: string) {
+      await requireInstalled();
       const { error } = await db.from("engine_permissions").upsert(
         {
           user_id: userId,
@@ -105,10 +280,22 @@ export function createEngineSdk(opts: SdkOptions) {
     },
 
     async hasPermission(scope: string) {
+      await requireInstalled();
       return scopeAllowed(db, userId, engineId, scope);
     },
 
-    /** Publish an event through the mesh. Validated + dispatched. */
+    async requestCapabilityAccess(
+      providerEngineId: string,
+      capability: string,
+      reason?: string,
+    ) {
+      const scope = `capability:${providerEngineId}.${capability}`;
+      return this.requestPermission(
+        scope,
+        reason ?? `Required to invoke ${providerEngineId}.${capability}`,
+      );
+    },
+
     async publishEvent(input: Omit<PublishInput, "source_engine">) {
       await assertEngineActive(db, userId, engineId);
       const result = await publishAndDispatch(db, userId, {
@@ -120,7 +307,6 @@ export function createEngineSdk(opts: SdkOptions) {
       return result;
     },
 
-    /** Publish a signal — the only data the Kernel reads from an engine. */
     async publishSignal(signal: {
       signal_key: string;
       value_num?: number | null;
@@ -150,27 +336,32 @@ export function createEngineSdk(opts: SdkOptions) {
       return { ok: true };
     },
 
-    /** Read authorized Human State axes only. */
     async readHumanState(axes: StateAxis[]) {
       await assertEngineActive(db, userId, engineId);
       await assertScope(db, userId, engineId, "human_states");
       const { data, error } = await db
         .from("human_states")
-        .select("as_of, composite, physical, cognitive, emotional, behavioral, lifestyle, operational")
+        .select(
+          "as_of, composite, physical, cognitive, emotional, behavioral, lifestyle, operational",
+        )
         .eq("user_id", userId)
         .order("as_of", { ascending: false })
         .limit(1)
         .maybeSingle();
       if (error) throw new SdkError(error.message);
       if (!data) return null;
-      const out: Record<string, unknown> = { as_of: data.as_of, composite: data.composite };
+
+      const out: Record<string, unknown> = {
+        as_of: data.as_of,
+        composite: data.composite,
+      };
       for (const axis of axes) out[axis] = data[axis];
       return out;
     },
 
-    /** Engine-private key/value storage. Never reachable by another engine. */
     storage: {
       async get<T = unknown>(key: string): Promise<T | null> {
+        await assertEngineActive(db, userId, engineId);
         const { data, error } = await db
           .from("engine_storage")
           .select("value")
@@ -182,14 +373,21 @@ export function createEngineSdk(opts: SdkOptions) {
         return (data?.value as T) ?? null;
       },
       async set(key: string, value: unknown) {
+        await assertEngineActive(db, userId, engineId);
         const { error } = await db.from("engine_storage").upsert(
-          { user_id: userId, engine_id: engineId, key, value: value as never },
+          {
+            user_id: userId,
+            engine_id: engineId,
+            key,
+            value: value as never,
+          },
           { onConflict: "user_id,engine_id,key" },
         );
         if (error) throw new SdkError(error.message);
         return { ok: true };
       },
       async remove(key: string) {
+        await assertEngineActive(db, userId, engineId);
         const { error } = await db
           .from("engine_storage")
           .delete()
@@ -200,6 +398,7 @@ export function createEngineSdk(opts: SdkOptions) {
         return { ok: true };
       },
       async keys() {
+        await assertEngineActive(db, userId, engineId);
         const { data, error } = await db
           .from("engine_storage")
           .select("key")
@@ -210,10 +409,16 @@ export function createEngineSdk(opts: SdkOptions) {
       },
     },
 
-    /** Invoke another engine's capability through the audited pipeline. */
-    async invokeCapability(capability: string, input?: unknown, version?: string) {
+    async invokeCapability(
+      capability: string,
+      input?: unknown,
+      version?: string,
+      providerEngineId?: string,
+    ) {
+      await assertEngineActive(db, userId, engineId);
       return invokeCapability(db, userId, {
         consumer_engine_id: engineId,
+        ...(providerEngineId ? { provider_engine_id: providerEngineId } : {}),
         capability,
         input: input ?? {},
         ...(version ? { version } : {}),
@@ -221,7 +426,6 @@ export function createEngineSdk(opts: SdkOptions) {
       });
     },
 
-    /** Scoped AI access. Prompt + engine identity are always logged. */
     async ai(prompt: string, system?: string) {
       await assertEngineActive(db, userId, engineId);
       const { runEngineAi } = await import("./ai.server");
@@ -229,7 +433,6 @@ export function createEngineSdk(opts: SdkOptions) {
       return runEngineAi(prompt, system);
     },
 
-    /** Identity of the operator this engine is acting for. */
     identity() {
       return { user_id: userId, engine_id: engineId };
     },

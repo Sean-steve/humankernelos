@@ -2,7 +2,7 @@
 // Owns the engine lifecycle state machine, dependency/version resolution,
 // health derivation, configuration, and the uninstall sequence.
 
-import { REGISTERED_ENGINES, type EngineDescriptor } from "./engines/contract";
+import type { EngineDescriptor } from "./engines/contract";
 import type { Db } from "./permissions.server";
 
 export const PLATFORM_VERSION = "1.0.0";
@@ -31,7 +31,7 @@ export const TRANSITIONS: Record<LifecycleState, LifecycleState[]> = {
   ENABLED: ["RUNNING", "SUSPENDED", "DISABLED"],
   RUNNING: ["SUSPENDED", "DISABLED"],
   SUSPENDED: ["ENABLED", "DISABLED"],
-  DISABLED: ["ENABLED", "UNINSTALLED"],
+  DISABLED: ["VALIDATED", "UNINSTALLED"],
   UNINSTALLED: [],
 };
 
@@ -90,10 +90,10 @@ export function resolveDependencies(
   platformVersion = PLATFORM_VERSION,
 ): ResolutionResult {
   const reasons: string[] = [];
-  const known = new Set([...installedEngineIds, ...REGISTERED_ENGINES.map((e) => e.id)]);
+  const installed = new Set(installedEngineIds);
 
   for (const dep of descriptor.dependencies) {
-    if (!known.has(dep)) reasons.push(`missing dependency "${dep}"`);
+    if (!installed.has(dep)) reasons.push(`missing installed dependency "${dep}"`);
   }
   if (platformVersion.split(".")[0] !== PLATFORM_VERSION.split(".")[0]) {
     reasons.push(`platform ${platformVersion} is incompatible with ${PLATFORM_VERSION}`);
@@ -158,6 +158,15 @@ export async function transition(
     .eq("user_id", userId)
     .eq("engine_id", engineId);
   if (error) throw new Error(error.message);
+
+  // Lifecycle is authoritative for event consumption. Subscriptions remain
+  // declared while inactive but are only enabled in operational states.
+  const { error: subscriptionError } = await db
+    .from("engine_subscriptions")
+    .update({ enabled: stateIsOperational(to) })
+    .eq("user_id", userId)
+    .eq("engine_id", engineId);
+  if (subscriptionError) throw new Error(subscriptionError.message);
 
   await db.from("engine_health_events").insert({
     user_id: userId,

@@ -8,11 +8,11 @@ import {
   REGISTERED_ENGINES,
   type EngineDescriptor,
 } from "@/lib/engines/contract";
+import { listEngines, registerEngine } from "@/lib/kernel.functions";
 import {
-  listEngines,
-  registerEngine,
-  setEngineStatus,
-} from "@/lib/kernel.functions";
+  transitionEngine,
+  validateEngineInstall,
+} from "@/lib/platform-manager.functions";
 
 export const Route = createFileRoute("/engines")({
   head: () => ({
@@ -21,27 +21,45 @@ export const Route = createFileRoute("/engines")({
       {
         name: "description",
         content:
-          "The Platform Foundation registry. Every installed Operating System declares its contract: version, data owned, signals published, events emitted, permissions.",
+          "The Platform Foundation registry. Every installed Operating System declares its contract, lifecycle, permissions, and health.",
       },
     ],
   }),
   component: EnginesPage,
 });
 
+type LifecycleState =
+  | "DISCOVERED"
+  | "INSTALLED"
+  | "REGISTERED"
+  | "VALIDATED"
+  | "ENABLED"
+  | "RUNNING"
+  | "SUSPENDED"
+  | "DISABLED"
+  | "UNINSTALLED";
+
 type InstalledEngine = {
   engine_id: string;
   name: string;
   version: string;
   status: "active" | "inactive" | "deprecated";
+  lifecycle_state: LifecycleState;
+  health: string;
   installed_at: string;
 };
+
+function isOperational(state: LifecycleState) {
+  return state === "ENABLED" || state === "RUNNING";
+}
 
 function EnginesPage() {
   const { session } = useSession();
   const qc = useQueryClient();
   const list = useServerFn(listEngines);
   const register = useServerFn(registerEngine);
-  const setStatus = useServerFn(setEngineStatus);
+  const validate = useServerFn(validateEngineInstall);
+  const transition = useServerFn(transitionEngine);
 
   const { data, isLoading } = useQuery({
     queryKey: ["engines"],
@@ -51,6 +69,8 @@ function EnginesPage() {
 
   const installAll = useMutation({
     mutationFn: async () => {
+      // Registration is deliberately separated from activation so dependency
+      // validation can see the complete installed set.
       for (const e of REGISTERED_ENGINES) {
         await register({
           data: {
@@ -71,13 +91,56 @@ function EnginesPage() {
           },
         });
       }
+
+      for (const e of REGISTERED_ENGINES) {
+        const result = await validate({ data: { engine_id: e.id } });
+        if (!result.ok) {
+          throw new Error(
+            `Validation failed for ${e.id}: ${result.reasons.join(", ")}`,
+          );
+        }
+      }
+
+      for (const e of REGISTERED_ENGINES) {
+        await transition({
+          data: {
+            engine_id: e.id,
+            to: "ENABLED",
+            note: "built-in catalogue registration completed",
+          },
+        });
+      }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["engines"] }),
   });
 
   const toggle = useMutation({
-    mutationFn: (v: { engine_id: string; status: InstalledEngine["status"] }) =>
-      setStatus({ data: v }),
+    mutationFn: async (engine: InstalledEngine) => {
+      if (isOperational(engine.lifecycle_state)) {
+        return transition({
+          data: {
+            engine_id: engine.engine_id,
+            to: "DISABLED",
+            note: "operator disabled engine",
+          },
+        });
+      }
+
+      const validation = await validate({
+        data: { engine_id: engine.engine_id },
+      });
+      if (!validation.ok) {
+        throw new Error(validation.reasons.join(", "));
+      }
+
+      return transition({
+        data: {
+          engine_id: engine.engine_id,
+          to: "ENABLED",
+          note: "operator enabled validated engine",
+        },
+      });
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["engines"] }),
   });
 
@@ -89,14 +152,14 @@ function EnginesPage() {
       <PageHeader
         eyebrow="Engine registry"
         title="The Platform Foundation."
-        intro="The Kernel is not the domain. Each engine declares its contract — data owned, signals published, events emitted — and the Platform enforces the boundary."
+        intro="The Kernel is not the domain. Installed engines are governed by persisted manifests, validation, lifecycle, permissions, and health."
       />
 
       <section className="mt-8 flex items-center justify-between rounded-2xl border hairline bg-surface p-5">
         <div>
-          <div className="font-display">Core engines</div>
+          <div className="font-display">Built-in engine catalogue</div>
           <div className="text-sm text-muted-foreground">
-            {installed.length} of {REGISTERED_ENGINES.length} installed
+            {installed.length} installed · {REGISTERED_ENGINES.length} available
           </div>
         </div>
         <button
@@ -104,9 +167,15 @@ function EnginesPage() {
           disabled={installAll.isPending}
           className="rounded-md border hairline px-3 py-1.5 text-sm hover:bg-foreground/5 disabled:opacity-50"
         >
-          {installAll.isPending ? "Registering…" : "Register / sync all"}
+          {installAll.isPending ? "Registering & validating…" : "Register / sync all"}
         </button>
       </section>
+
+      {installAll.error && (
+        <div className="mt-4 rounded-lg border hairline bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {installAll.error.message}
+        </div>
+      )}
 
       <section className="mt-6 grid gap-4 md:grid-cols-2">
         {REGISTERED_ENGINES.map((e) => (
@@ -115,9 +184,8 @@ function EnginesPage() {
             descriptor={e}
             installed={installedMap.get(e.id)}
             loading={isLoading}
-            onToggle={(status) =>
-              toggle.mutate({ engine_id: e.id, status })
-            }
+            busy={toggle.isPending}
+            onToggle={(engine) => toggle.mutate(engine)}
           />
         ))}
       </section>
@@ -129,31 +197,30 @@ function EngineCard({
   descriptor: e,
   installed,
   loading,
+  busy,
   onToggle,
 }: {
   descriptor: EngineDescriptor;
   installed?: InstalledEngine;
   loading: boolean;
-  onToggle: (status: "active" | "inactive") => void;
+  busy: boolean;
+  onToggle: (engine: InstalledEngine) => void;
 }) {
-  const status: "not_installed" | "active" | "inactive" | "deprecated" =
-    !installed ? "not_installed" : installed.status;
+  const operational = installed ? isOperational(installed.lifecycle_state) : false;
 
-  const dotColor =
-    status === "active"
-      ? "var(--color-success)"
-      : status === "inactive"
+  const dotColor = operational
+    ? "var(--color-success)"
+    : installed?.lifecycle_state === "UNINSTALLED"
+      ? "var(--color-destructive)"
+      : installed
         ? "var(--color-warning)"
-        : status === "deprecated"
-          ? "var(--color-destructive)"
-          : "var(--color-muted-foreground)";
+        : "var(--color-muted-foreground)";
 
-  const label =
-    status === "not_installed"
-      ? loading
-        ? "…"
-        : "Not registered"
-      : status[0].toUpperCase() + status.slice(1);
+  const label = !installed
+    ? loading
+      ? "…"
+      : "Not installed"
+    : installed.lifecycle_state;
 
   return (
     <article className="rounded-2xl border hairline bg-surface p-5">
@@ -186,18 +253,18 @@ function EngineCard({
         <Meta label="Consumes" values={e.requiredSignals} />
       </dl>
 
-      {installed && (
+      {installed && installed.lifecycle_state !== "UNINSTALLED" && (
         <div className="mt-5 flex items-center justify-between border-t hairline pt-4 text-[11px] text-muted-foreground">
           <span>
-            Installed · {new Date(installed.installed_at).toLocaleDateString()}
+            Health: {installed.health} · Installed{" "}
+            {new Date(installed.installed_at).toLocaleDateString()}
           </span>
           <button
-            onClick={() =>
-              onToggle(installed.status === "active" ? "inactive" : "active")
-            }
-            className="text-foreground/80 hover:text-foreground"
+            onClick={() => onToggle(installed)}
+            disabled={busy}
+            className="text-foreground/80 hover:text-foreground disabled:opacity-50"
           >
-            {installed.status === "active" ? "Deactivate" : "Activate"} →
+            {operational ? "Disable" : "Validate & enable"} →
           </button>
         </div>
       )}

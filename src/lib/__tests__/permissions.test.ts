@@ -1,47 +1,132 @@
 import { describe, expect, it } from "vitest";
 import { engineIsActive, scopeAllowed, type Db } from "../permissions.server";
 
-/** Minimal chainable stub of the supabase query builder paths we use. */
-function stubDb(rows: Record<string, unknown> | null) {
-  const builder = {
-    select: () => builder,
-    eq: () => builder,
-    maybeSingle: async () => ({ data: rows, error: null }),
-    insert: async () => ({ error: null }),
-  };
-  return { from: () => builder } as unknown as Db;
+function stubDb(
+  tables: Record<string, Record<string, unknown> | null>,
+) {
+  return {
+    from(table: string) {
+      const builder = {
+        select: () => builder,
+        eq: () => builder,
+        maybeSingle: async () => ({
+          data: tables[table] ?? null,
+          error: null,
+        }),
+        insert: async () => ({ error: null }),
+      };
+      return builder;
+    },
+  } as unknown as Db;
 }
 
 describe("consent resolution", () => {
   it("honours an explicit grant", async () => {
-    expect(await scopeAllowed(stubDb({ granted: true }), "u", "nutrition", "check_ins")).toBe(true);
+    expect(
+      await scopeAllowed(
+        stubDb({ engine_permissions: { granted: true } }),
+        "u",
+        "nutrition",
+        "check_ins",
+      ),
+    ).toBe(true);
   });
 
   it("honours an explicit revocation, even for kernel engines", async () => {
-    expect(await scopeAllowed(stubDb({ granted: false }), "u", "orchestrator", "engine_signals")).toBe(
-      false,
-    );
+    expect(
+      await scopeAllowed(
+        stubDb({
+          engine_permissions: { granted: false },
+          engines: { engine_id: "orchestrator" },
+        }),
+        "u",
+        "orchestrator",
+        "engine_signals",
+      ),
+    ).toBe(false);
   });
 
   it("denies an undecided third-party engine by default", async () => {
-    expect(await scopeAllowed(stubDb(null), "u", "nutrition", "check_ins")).toBe(false);
+    expect(
+      await scopeAllowed(
+        stubDb({
+          engine_permissions: null,
+          engines: { engine_id: "external" },
+        }),
+        "u",
+        "external",
+        "human_states",
+      ),
+    ).toBe(false);
   });
 
-  it("allows an undecided kernel-owned engine", async () => {
-    expect(await scopeAllowed(stubDb(null), "u", "orchestrator", "engine_signals")).toBe(true);
+  it("does not allow an external engine to self-assert kernel trust", async () => {
+    expect(
+      await scopeAllowed(
+        stubDb({
+          engine_permissions: null,
+          engines: { engine_id: "malicious-external", owner: "HOS Kernel" },
+        }),
+        "u",
+        "malicious-external",
+        "human_states",
+      ),
+    ).toBe(false);
+  });
+
+  it("allows an undecided persisted kernel-owned engine", async () => {
+    expect(
+      await scopeAllowed(
+        stubDb({
+          engine_permissions: null,
+          engines: { owner: "HOS Kernel" },
+        }),
+        "u",
+        "orchestrator",
+        "engine_signals",
+      ),
+    ).toBe(true);
   });
 });
 
 describe("engine lifecycle gate", () => {
-  it("blocks a deactivated engine", async () => {
-    expect(await engineIsActive(stubDb({ status: "inactive" }), "u", "nutrition")).toBe(false);
+  it("blocks an inactive engine", async () => {
+    expect(
+      await engineIsActive(
+        stubDb({
+          engines: { status: "inactive", lifecycle_state: "DISABLED" },
+        }),
+        "u",
+        "nutrition",
+      ),
+    ).toBe(false);
   });
 
-  it("allows an active engine", async () => {
-    expect(await engineIsActive(stubDb({ status: "active" }), "u", "nutrition")).toBe(true);
+  it("allows an installed engine only in an operational lifecycle state", async () => {
+    expect(
+      await engineIsActive(
+        stubDb({
+          engines: { status: "active", lifecycle_state: "ENABLED" },
+        }),
+        "u",
+        "nutrition",
+      ),
+    ).toBe(true);
   });
 
-  it("falls back to the declared contract status when not installed", async () => {
-    expect(await engineIsActive(stubDb(null), "u", "nutrition")).toBe(true);
+  it("blocks suspended engines even if their legacy status is active", async () => {
+    expect(
+      await engineIsActive(
+        stubDb({
+          engines: { status: "active", lifecycle_state: "SUSPENDED" },
+        }),
+        "u",
+        "nutrition",
+      ),
+    ).toBe(false);
+  });
+
+  it("fails closed when an engine is not installed", async () => {
+    expect(await engineIsActive(stubDb({ engines: null }), "u", "nutrition")).toBe(false);
   });
 });

@@ -4,7 +4,6 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { REGISTERED_ENGINES } from "./engines/contract";
 
 export type Db = SupabaseClient<Database>;
 
@@ -20,9 +19,28 @@ export class ConsentDeniedError extends Error {
   }
 }
 
-function isKernelOwned(engineId: string) {
-  const e = REGISTERED_ENGINES.find((x) => x.id === engineId);
-  return (e?.owner ?? "").toLowerCase().includes("kernel");
+const TRUSTED_KERNEL_ENGINE_IDS = new Set([
+  "hsie",
+  "pdie",
+  "policy",
+  "learning",
+  "orchestrator",
+  "timeline",
+]);
+
+async function isKernelOwned(db: Db, userId: string, engineId: string) {
+  if (!TRUSTED_KERNEL_ENGINE_IDS.has(engineId)) return false;
+
+  const { data } = await db
+    .from("engines")
+    .select("engine_id")
+    .eq("user_id", userId)
+    .eq("engine_id", engineId)
+    .maybeSingle();
+
+  // Trust is rooted in the platform-owned engine identifier, never in
+  // manifest-controlled owner text.
+  return !!data;
 }
 
 /** Resolve whether an engine currently holds consent for a data scope. */
@@ -41,7 +59,7 @@ export async function scopeAllowed(
     .maybeSingle();
 
   if (data) return !!data.granted;
-  return isKernelOwned(engineId);
+  return isKernelOwned(db, userId, engineId);
 }
 
 /** Throw + audit when an engine reads a scope it does not hold consent for. */
@@ -67,17 +85,17 @@ export async function assertScope(
 export async function engineIsActive(db: Db, userId: string, engineId: string): Promise<boolean> {
   const { data } = await db
     .from("engines")
-    .select("status")
+    .select("status, lifecycle_state")
     .eq("user_id", userId)
     .eq("engine_id", engineId)
     .maybeSingle();
 
-  // Not yet installed: fall back to the declared contract status.
-  if (!data) {
-    const declared = REGISTERED_ENGINES.find((e) => e.id === engineId);
-    return (declared?.status ?? "active") === "active";
-  }
-  return data.status === "active";
+  // Persisted installation is authoritative. Declared/catalogued software is
+  // not allowed to act until it is installed and placed in an operational state.
+  if (!data) return false;
+
+  const lifecycle = data.lifecycle_state ?? "DISABLED";
+  return data.status === "active" && (lifecycle === "ENABLED" || lifecycle === "RUNNING");
 }
 
 export async function assertEngineActive(db: Db, userId: string, engineId: string): Promise<void> {

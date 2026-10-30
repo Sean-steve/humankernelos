@@ -5,13 +5,16 @@
 // foundation. Persisted/runtime-authoritative registration is Phase-2 work.
 // Do not treat this array as the final plug-and-play engine architecture.
 
-export type HosEventType =
+export type BuiltinHosEventType =
   | "MealLogged"
   | "WorkoutCompleted"
   | "RoutineCompleted"
   | "CheckInSubmitted"
   | "ReflectionSaved"
   | "OutcomeMeasured";
+
+/** External engines may publish additional versioned event names. */
+export type HosEventType = string;
 
 
 export type SignalTrend =
@@ -54,6 +57,7 @@ export interface EngineDescriptor {
   };
 }
 
+/** Built-in installable catalogue. Persisted rows are runtime authority. */
 export const REGISTERED_ENGINES: EngineDescriptor[] = [
   {
     id: "nutrition",

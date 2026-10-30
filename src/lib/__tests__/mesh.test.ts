@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { EVENT_HANDLERS, MAX_ATTEMPTS, subscriptionSeeds } from "../mesh.server";
+import {
+  EVENT_HANDLERS,
+  MAX_ATTEMPTS,
+  resolveEventHandler,
+  subscriptionSeeds,
+} from "../mesh.server";
 import { REGISTERED_ENGINES } from "../engines/contract";
 
 describe("event mesh subscriptions", () => {
@@ -17,8 +22,18 @@ describe("event mesh subscriptions", () => {
   });
 
   it("produces unique engine/handler pairs per event type", () => {
-    const keys = subscriptionSeeds().map((s) => `${s.event_type}:${s.engine_id}:${s.handler}`);
+    const keys = subscriptionSeeds().map(
+      (s) => `${s.event_type}:${s.engine_id}:${s.handler}`,
+    );
     expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("resolves declared handlers through the runtime registry", () => {
+    for (const seed of subscriptionSeeds()) {
+      expect(
+        resolveEventHandler(seed.event_type, seed.engine_id, seed.handler),
+      ).toBeDefined();
+    }
   });
 
   it("bounds retries", () => {

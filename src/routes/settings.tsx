@@ -212,10 +212,10 @@ function SettingsPage() {
 
           <div className="flex items-center justify-between">
             <Link
-              to="/"
+              to="/me"
               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
-              <ArrowLeft className="h-3.5 w-3.5" /> Back to Home
+              <ArrowLeft className="h-3.5 w-3.5" /> Back to Me
             </Link>
             <button
               type="button"

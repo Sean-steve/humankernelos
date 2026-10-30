@@ -1,217 +1,200 @@
 import { useState, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  Activity,
-  Apple,
   Brain,
-
+  CalendarDays,
   CircleGauge,
-  Compass,
-  Dumbbell,
-  Flame,
-  GitBranch,
   Layers,
   Menu,
-  Moon,
-  ScrollText,
-  Settings,
-  ShieldCheck,
+  Settings2,
   Sparkles,
   Sun,
+  UserRound,
   X,
-  ClipboardCheck,
-  Workflow,
 } from "lucide-react";
 import { CommandPalette } from "./CommandPalette";
 import { useSession } from "@/hooks/use-session";
 import { supabase } from "@/integrations/supabase/client";
 
-const navItems = [
+const personalNav = [
   { icon: Sun, label: "Today", to: "/" },
-  { icon: ClipboardCheck, label: "Check-in", to: "/check-in" },
-  { icon: CircleGauge, label: "Human State", to: "/human-state" },
-  { icon: Workflow, label: "Orchestrator", to: "/orchestrator" },
-  { icon: ScrollText, label: "Policies", to: "/policies" },
-  { icon: Brain, label: "Learning", to: "/learning" },
-  { icon: GitBranch, label: "Timeline", to: "/timeline" },
-  { icon: ShieldCheck, label: "Governance", to: "/governance" },
-
-  { icon: Compass, label: "Standards", to: "/standards" },
-  { icon: Workflow, label: "Protocols", to: "/protocols" },
-  { icon: Apple, label: "Nutrition", to: "/nutrition" },
-  { icon: Dumbbell, label: "Body", to: "/body" },
-  { icon: Flame, label: "Achievements", to: "/achievements" },
+  { icon: CalendarDays, label: "Plan", to: "/plan" },
+  { icon: CircleGauge, label: "My State", to: "/human-state" },
+  { icon: Brain, label: "Intelligence", to: "/intelligence" },
   { icon: Layers, label: "Engines", to: "/engines" },
-  { icon: Activity, label: "Signals", to: "/signals" },
-  { icon: Moon, label: "Reflection", to: "/reflection" },
-  { icon: Settings, label: "Settings", to: "/settings" },
+  { icon: UserRound, label: "Me", to: "/me" },
 ] as const;
+
+const mobileNav = [
+  { icon: Sun, label: "Today", to: "/" },
+  { icon: CalendarDays, label: "Plan", to: "/plan" },
+  { icon: Brain, label: "HOS", to: "/intelligence" },
+  { icon: Layers, label: "Engines", to: "/engines" },
+  { icon: UserRound, label: "Me", to: "/me" },
+] as const;
+
+function isActive(pathname: string, to: string) {
+  if (to === "/") return pathname === "/";
+  return pathname === to || pathname.startsWith(`${to}/`);
+}
 
 export function Shell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen w-full">
+    <div className="min-h-screen w-full pb-20 md:pb-0">
       <CommandPalette />
-      {/* Mobile top bar */}
-      <div className="sticky top-0 z-30 flex items-center justify-between border-b hairline bg-background/80 px-4 py-3 backdrop-blur md:hidden">
+
+      <div className="sticky top-0 z-30 flex items-center justify-between border-b hairline bg-background/85 px-4 py-3 backdrop-blur md:hidden">
         <Link to="/" className="flex items-center gap-2">
-          <div className="grid h-7 w-7 place-items-center rounded-md bg-primary/15 text-primary">
-            <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
+          <div className="grid h-8 w-8 place-items-center rounded-xl bg-primary/15 text-primary">
+            <Sparkles className="h-4 w-4" strokeWidth={1.5} />
           </div>
-          <span className="font-display text-sm">Human OS</span>
+          <div>
+            <div className="font-display text-sm">HumanKernelOS</div>
+            <div className="text-[10px] text-muted-foreground">Personal HOS</div>
+          </div>
         </Link>
         <button
           onClick={() => setMobileOpen(true)}
-          className="grid h-9 w-9 place-items-center rounded-md border hairline text-muted-foreground hover:text-foreground"
+          className="grid h-9 w-9 place-items-center rounded-lg border hairline text-muted-foreground hover:text-foreground"
           aria-label="Open navigation"
         >
           <Menu className="h-4 w-4" />
         </button>
       </div>
 
-      {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
-          <div
-            className="absolute inset-0 bg-background/70 backdrop-blur-sm"
+        <div className="fixed inset-0 z-50 md:hidden">
+          <button
+            className="absolute inset-0 bg-background/75 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
+            aria-label="Close navigation overlay"
           />
-          <aside className="absolute inset-y-0 left-0 flex w-72 flex-col justify-between border-r hairline bg-background px-5 py-6">
-            <div>
-              <div className="flex items-center justify-between">
-                <Link
-                  to="/"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2.5"
-                >
-                  <div className="grid h-8 w-8 place-items-center rounded-md bg-primary/15 text-primary">
-                    <Sparkles className="h-4 w-4" strokeWidth={1.5} />
-                  </div>
-                  <div className="leading-tight">
-                    <div className="font-display text-[15px] tracking-tight">
-                      Human OS
-                    </div>
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                      Kernel · v0.4
-                    </div>
-                  </div>
-                </Link>
-                <button
-                  onClick={() => setMobileOpen(false)}
-                  className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:text-foreground"
-                  aria-label="Close navigation"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <nav className="mt-8 flex flex-col gap-0.5">
-                {navItems.map(({ icon: Icon, label, to }) => {
-                  const active = pathname === to;
-                  return (
-                    <Link
-                      key={label}
-                      to={to}
-                      onClick={() => setMobileOpen(false)}
-                      className={
-                        "group flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors " +
-                        (active
-                          ? "bg-surface-elevated text-foreground"
-                          : "text-muted-foreground hover:bg-surface hover:text-foreground")
-                      }
-                    >
-                      <Icon
-                        className={
-                          "h-4 w-4 " +
-                          (active ? "text-primary" : "text-muted-foreground")
-                        }
-                        strokeWidth={1.5}
-                      />
-                      {label}
-                    </Link>
-                  );
-                })}
-              </nav>
+          <aside className="absolute inset-y-0 left-0 flex w-72 flex-col bg-background px-5 py-6 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <div className="font-display text-lg">Personal HOS</div>
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground"
+                aria-label="Close navigation"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-          </aside>
-        </div>
-      )}
 
-      <div className="mx-auto flex min-h-screen max-w-[1400px]">
-        {/* Sidebar */}
-        <aside className="hidden w-60 shrink-0 flex-col justify-between border-r hairline px-5 py-8 md:flex">
-          <div>
-            <Link to="/" className="flex items-center gap-2.5">
-              <div className="grid h-8 w-8 place-items-center rounded-md bg-primary/15 text-primary">
-                <Sparkles className="h-4 w-4" strokeWidth={1.5} />
-              </div>
-              <div className="leading-tight">
-                <div className="font-display text-[15px] tracking-tight">
-                  Human OS
-                </div>
-                <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                  Kernel · v0.4
-                </div>
-              </div>
-            </Link>
-
-            <nav className="mt-10 flex flex-col gap-0.5">
-              {navItems.map(({ icon: Icon, label, to }) => {
-                const active = pathname === to;
+            <nav className="mt-8 flex flex-col gap-1">
+              {personalNav.map(({ icon: Icon, label, to }) => {
+                const active = isActive(pathname, to);
                 return (
                   <Link
                     key={label}
                     to={to}
+                    onClick={() => setMobileOpen(false)}
                     className={
-                      "group flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors " +
+                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors " +
                       (active
-                        ? "bg-surface-elevated text-foreground"
+                        ? "bg-primary/10 text-foreground"
                         : "text-muted-foreground hover:bg-surface hover:text-foreground")
                     }
                   >
-                    <Icon
-                      className={
-                        "h-4 w-4 " +
-                        (active
-                          ? "text-primary"
-                          : "text-muted-foreground group-hover:text-foreground")
-                      }
-                      strokeWidth={1.5}
-                    />
+                    <Icon className={active ? "h-4 w-4 text-primary" : "h-4 w-4"} strokeWidth={1.5} />
                     {label}
                   </Link>
                 );
               })}
             </nav>
-          </div>
 
-          <div className="flex flex-col gap-3">
+            <div className="mt-auto space-y-3">
+              <Link
+                to="/platform-studio"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-2 rounded-xl border hairline px-3 py-2.5 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <Settings2 className="h-4 w-4" />
+                Platform Studio
+              </Link>
+              <AccountBadge />
+            </div>
+          </aside>
+        </div>
+      )}
+
+      <div className="mx-auto flex min-h-screen max-w-[1500px]">
+        <aside className="hidden w-64 shrink-0 flex-col border-r hairline px-5 py-8 md:flex">
+          <Link to="/" className="flex items-center gap-3">
+            <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary/15 text-primary">
+              <Sparkles className="h-4 w-4" strokeWidth={1.5} />
+            </div>
+            <div className="leading-tight">
+              <div className="font-display text-[16px]">HumanKernelOS</div>
+              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                Personal HOS
+              </div>
+            </div>
+          </Link>
+
+          <nav className="mt-10 flex flex-col gap-1">
+            {personalNav.map(({ icon: Icon, label, to }) => {
+              const active = isActive(pathname, to);
+              return (
+                <Link
+                  key={label}
+                  to={to}
+                  className={
+                    "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors " +
+                    (active
+                      ? "bg-primary/10 text-foreground"
+                      : "text-muted-foreground hover:bg-surface hover:text-foreground")
+                  }
+                >
+                  <Icon
+                    className={
+                      "h-4 w-4 " +
+                      (active ? "text-primary" : "group-hover:text-foreground")
+                    }
+                    strokeWidth={1.5}
+                  />
+                  {label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="mt-auto space-y-3">
             <Link
-              to="/engines"
-              className="rounded-lg border hairline bg-surface/60 p-4 text-xs transition-colors hover:bg-surface"
+              to="/platform-studio"
+              className="flex items-center gap-2 rounded-xl border hairline bg-surface/40 px-3 py-2.5 text-xs text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
             >
-              <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                Operating engines
-              </div>
-              <div className="mt-1 text-foreground/90">
-                View installed engines and their real runtime status →
-              </div>
+              <Settings2 className="h-4 w-4" strokeWidth={1.5} />
+              Platform Studio
             </Link>
             <AccountBadge />
-            <Link
-              to="/settings"
-              className="inline-flex items-center gap-2 rounded-lg border hairline bg-surface/60 px-4 py-3 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <Settings className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Settings
-            </Link>
           </div>
         </aside>
 
-
-        <main className="flex-1 px-5 py-8 md:px-10 md:py-12">{children}</main>
+        <main className="min-w-0 flex-1 px-5 py-7 md:px-10 md:py-10 lg:px-12">{children}</main>
       </div>
+
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t hairline bg-background/95 px-2 py-1.5 backdrop-blur md:hidden">
+        {mobileNav.map(({ icon: Icon, label, to }) => {
+          const active = isActive(pathname, to);
+          return (
+            <Link
+              key={label}
+              to={to}
+              className={
+                "flex flex-col items-center gap-1 rounded-lg py-1.5 text-[10px] " +
+                (active ? "text-primary" : "text-muted-foreground")
+              }
+            >
+              <Icon className="h-4 w-4" strokeWidth={1.6} />
+              {label}
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }
@@ -219,29 +202,28 @@ export function Shell({ children }: { children: ReactNode }) {
 function AccountBadge() {
   const { session, loading } = useSession();
   if (loading) return null;
+
   if (!session) {
     return (
       <Link
         to="/auth"
-        className="rounded-lg border hairline bg-surface/60 px-4 py-3 text-xs text-muted-foreground hover:text-foreground"
+        className="block rounded-xl border hairline bg-surface/40 px-3 py-2.5 text-xs text-muted-foreground hover:text-foreground"
       >
-        <div className="uppercase tracking-[0.14em]">Not signed in</div>
-        <div className="mt-1 text-foreground/90">Sign in to persist state →</div>
+        Sign in to your Kernel →
       </Link>
     );
   }
+
   const email = session.user.email ?? "signed in";
   return (
-    <div className="rounded-lg border hairline bg-surface/60 p-4 text-xs">
-      <div className="uppercase tracking-[0.14em] text-muted-foreground">Operator</div>
-      <div className="mt-1 truncate text-foreground/90">{email}</div>
+    <div className="rounded-xl border hairline bg-surface/40 p-3 text-xs">
+      <div className="truncate text-foreground/90">{email}</div>
       <button
         onClick={() => supabase.auth.signOut()}
-        className="mt-2 text-[11px] text-muted-foreground hover:text-foreground"
+        className="mt-1.5 text-[11px] text-muted-foreground hover:text-foreground"
       >
         Sign out
       </button>
     </div>
   );
 }
-

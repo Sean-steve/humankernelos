@@ -1,5 +1,6 @@
-// Static seed data for the HOS Kernel visual shell.
-// This lives on the client — real state persistence arrives in a later pass.
+// Illustrative sample data retained for explicitly labelled sample-only screens.
+// Never use these values as a fallback for live Human State, engine connectivity,
+// Daily Plan, or other operator truth. The Today surface must fail to unknown/empty.
 
 export const humanState = {
   energy: 74,
@@ -12,7 +13,7 @@ export const humanState = {
   sleepHours: 7.4,
 };
 
-export type StateKey = keyof typeof humanState;
+export type StateKey = "energy" | "focus" | "recovery" | "stress" | "mood";
 
 export const stateCards: Array<{
   key: StateKey;
@@ -20,12 +21,11 @@ export const stateCards: Array<{
   unit?: string;
   hint: string;
 }> = [
-  { key: "energy", label: "Energy", hint: "Trending up since 06:40" },
-  { key: "focus", label: "Focus", hint: "Deep-work window: 09:00 – 11:30" },
-  { key: "recovery", label: "Recovery", hint: "HRV 62 · RHR 54" },
-  { key: "stress", label: "Stress", hint: "Below baseline" },
-  { key: "mood", label: "Mood", hint: "Steady" },
-  { key: "momentum", label: "Momentum", hint: "6-day standards streak" },
+  { key: "energy", label: "Energy", hint: "From your latest recorded check-in" },
+  { key: "focus", label: "Focus", hint: "From your latest recorded check-in" },
+  { key: "recovery", label: "Recovery", hint: "From your latest recorded check-in" },
+  { key: "stress", label: "Stress", hint: "From your latest recorded check-in" },
+  { key: "mood", label: "Mood", hint: "From your latest recorded check-in" },
 ];
 
 export const todaysPlan = [

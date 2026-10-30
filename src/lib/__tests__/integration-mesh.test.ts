@@ -29,7 +29,7 @@ describe("Integration Mesh runtime registry", () => {
         headers: new Headers(),
         body: "{}",
       }),
-    ).rejects.toMatchObject<Partial<ConnectorRuntimeError>>({
+    ).rejects.toMatchObject({
       code: "adapter_unavailable",
     });
   });
@@ -50,7 +50,7 @@ describe("Integration Mesh runtime registry", () => {
         headers: new Headers(),
         body: "{}",
       }),
-    ).rejects.toMatchObject<Partial<ConnectorRuntimeError>>({
+    ).rejects.toMatchObject({
       code: "signature_invalid",
     });
   });

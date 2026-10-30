@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { refreshLearningMemory } from "./learning-memory.server";
 
 export const listPersonalMemory = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -65,40 +66,14 @@ export const upsertPersonalMemory = createServerFn({ method: "POST" })
 export const synthesizePersonalMemory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data: patterns, error } = await context.supabase
-      .from("learned_patterns")
-      .select("id, label, description, axis, evidence_count, confidence, updated_at")
-      .eq("active", true)
-      .order("confidence", { ascending: false });
-    if (error) throw new Error(error.message);
-
-    const now = new Date().toISOString();
-    const rows = (patterns ?? [])
-      .filter((pattern) => (pattern.evidence_count ?? 0) >= 3)
-      .map((pattern) => ({
-        user_id: context.userId,
-        memory_type: "pattern",
-        memory_key: `learned-pattern:${pattern.id}`,
-        summary: pattern.description,
-        evidence: [
-          `pattern=${pattern.label}`,
-          `axis=${pattern.axis ?? "general"}`,
-          `evidence_count=${pattern.evidence_count}`,
-        ] as never,
-        confidence: pattern.confidence,
-        active: true,
-        first_observed_at: pattern.updated_at,
-        last_observed_at: now,
-      }));
-
-    if (rows.length > 0) {
-      const { error: upsertError } = await context.supabase
-        .from("personal_memory")
-        .upsert(rows, { onConflict: "user_id,memory_key" });
-      if (upsertError) throw new Error(upsertError.message);
-    }
-
-    return { synthesized: rows.length };
+    const result = await refreshLearningMemory(
+      context.supabase,
+      context.userId,
+    );
+    return {
+      synthesized: result.memory_count,
+      patterns: result.pattern_count,
+    };
   });
 
 export const setPersonalMemoryActive = createServerFn({ method: "POST" })

@@ -1,67 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { assertEngineActive, assertScope, type Db } from "./permissions.server";
-import { protectedConflict, validateWindow } from "./daily-plan.server";
+import { assertEngineActive, assertScope } from "./permissions.server";
+import {
+  materializeDailyPlanContext,
+  protectedConflict,
+  validateWindow,
+} from "./daily-plan.server";
 
 function localDate() {
   return new Date().toISOString().slice(0, 10);
-}
-
-async function ensurePlan(
-  context: { supabase: Db; userId: string },
-  planDate: string,
-) {
-  const { supabase, userId } = context;
-  const { data: existing, error: readError } = await supabase
-    .from("daily_plans")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("plan_date", planDate)
-    .maybeSingle();
-  if (readError) throw new Error(readError.message);
-  if (existing) return existing;
-
-  const [{ data: hsv }, { data: goals }, { data: policies }] = await Promise.all([
-    supabase
-      .from("human_states")
-      .select("as_of, composite, physical, cognitive, emotional, behavioral, lifestyle, operational")
-      .eq("user_id", userId)
-      .order("as_of", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("goals")
-      .select("id, title, horizon, priority, progress, target_date")
-      .eq("user_id", userId)
-      .eq("status", "active")
-      .order("priority", { ascending: true })
-      .limit(20),
-    supabase
-      .from("policies")
-      .select("id, name, priority, when_condition, then_action")
-      .eq("user_id", userId)
-      .eq("active", true)
-      .order("priority", { ascending: true }),
-  ]);
-
-  const { data: created, error } = await supabase
-    .from("daily_plans")
-    .insert({
-      user_id: userId,
-      plan_date: planDate,
-      status: "draft",
-      context_snapshot: {
-        human_state: hsv ?? null,
-        goals: goals ?? [],
-        policies: policies ?? [],
-      },
-      generated_at: new Date().toISOString(),
-    })
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
-  return created;
 }
 
 const DateInput = z.object({
@@ -73,7 +21,7 @@ export const getDailyPlan = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) => DateInput.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const planDate = data.plan_date ?? localDate();
-    const plan = await ensurePlan({ supabase: context.supabase, userId: context.userId }, planDate);
+    const plan = await materializeDailyPlanContext(context.supabase, context.userId, planDate);
 
     const [{ data: items, error: itemsError }, { data: proposals, error: proposalsError }] =
       await Promise.all([
@@ -119,7 +67,7 @@ export const upsertDailyPlanItem = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     validateWindow(data.start_at, data.end_at);
     const planDate = data.plan_date ?? localDate();
-    const plan = await ensurePlan({ supabase: context.supabase, userId: context.userId }, planDate);
+    const plan = await materializeDailyPlanContext(context.supabase, context.userId, planDate);
 
     const { data: existing, error: existingError } = await context.supabase
       .from("daily_plan_items")
@@ -292,7 +240,7 @@ export const decideDailyPlanProposal = createServerFn({ method: "POST" })
       data.decision === "modified" ? data.end_at ?? proposal.requested_end : proposal.requested_end;
     validateWindow(startAt, endAt);
 
-    const plan = await ensurePlan({ supabase: context.supabase, userId: context.userId }, proposal.plan_date);
+    const plan = await materializeDailyPlanContext(context.supabase, context.userId, proposal.plan_date);
     const { data: existing, error: existingError } = await context.supabase
       .from("daily_plan_items")
       .select("id, start_at, end_at, protected")
@@ -353,7 +301,7 @@ export const activateDailyPlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => DateInput.parse(input ?? {}))
   .handler(async ({ data, context }) => {
-    const plan = await ensurePlan({ supabase: context.supabase, userId: context.userId }, data.plan_date ?? localDate());
+    const plan = await materializeDailyPlanContext(context.supabase, context.userId, data.plan_date ?? localDate());
     const { data: active, error } = await context.supabase
       .from("daily_plans")
       .update({ status: "active", generated_at: new Date().toISOString() })

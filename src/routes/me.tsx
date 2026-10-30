@@ -307,7 +307,7 @@ function QuickLink({
   icon: typeof Sparkles;
   title: string;
   description: string;
-  to: string;
+  to: "/standards" | "/reflection" | "/settings";
 }) {
   return (
     <Link

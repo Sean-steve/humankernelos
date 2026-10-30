@@ -3,9 +3,9 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertEngineActive } from "./permissions.server";
 import {
-  EVENT_HANDLERS,
   deliver,
   publishAndDispatch,
+  resolveEventHandler,
   subscriptionSeeds,
   type MeshEvent,
 } from "./mesh.server";
@@ -256,9 +256,7 @@ export const retryDeadLetters = createServerFn({ method: "POST" })
         .maybeSingle();
       if (!ev) continue;
 
-      const handler = (EVENT_HANDLERS[ev.type] ?? []).find(
-        (h) => h.engine_id === row.engine_id && h.handler === row.handler,
-      );
+      const handler = resolveEventHandler(ev.type, row.engine_id, row.handler);
       if (!handler) continue;
 
       const event: MeshEvent = {

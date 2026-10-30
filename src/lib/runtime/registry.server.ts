@@ -2,6 +2,7 @@ import type { ZodTypeAny } from "zod";
 import type { Db } from "../permissions.server";
 
 export type RuntimeCapability = {
+  id: string;
   provider_engine_id: string;
   capability: string;
   version: string;

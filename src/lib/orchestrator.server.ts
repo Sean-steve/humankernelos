@@ -43,6 +43,7 @@ export type Contribution = {
   reliability: number;
   recency: number; // 0..1
   trend: string;
+  occurred_at: string;
 };
 
 export type FusedAxis = {
@@ -176,6 +177,7 @@ function buildContributions(signals: RawSignal[], checkIn: CheckIn, now: number)
       reliability,
       recency: Math.round(recency * 100) / 100,
       trend: s.trend ?? "unknown",
+      occurred_at: s.occurred_at,
     });
   }
 
@@ -196,6 +198,7 @@ function buildContributions(signals: RawSignal[], checkIn: CheckIn, now: number)
         reliability: 0.85,
         recency: Math.round(recency * 100) / 100,
         trend: "unknown",
+        occurred_at: checkIn.created_at,
       });
     }
 
@@ -212,6 +215,7 @@ function buildContributions(signals: RawSignal[], checkIn: CheckIn, now: number)
         reliability: 0.8,
         recency: Math.round(recencySleep * 100) / 100,
         trend: "unknown",
+        occurred_at: checkIn.created_at,
       });
     }
   }

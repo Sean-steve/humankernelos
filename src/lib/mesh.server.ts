@@ -11,12 +11,14 @@ import {
   type RawSignal,
 } from "./orchestrator.server";
 import { adherenceRate, type OutcomeRow } from "./learning.server";
+import { refreshLearningMemory } from "./learning-memory.server";
 import {
   assertEngineActive,
   engineIsActive,
   scopeAllowed,
   type Db,
 } from "./permissions.server";
+import { materializeHumanState } from "./hsie.server";
 import {
   EVENT_SCHEMAS,
   CURRENT_SCHEMA_VERSION,
@@ -105,6 +107,10 @@ export async function runAndPersistOrchestrator(db: Db, userId: string) {
     if (cErr) throw new Error(cErr.message);
   }
 
+  // The Orchestrator and HSIE share one fused truth. Every successful fusion
+  // materializes the canonical HSV and its evidence trail.
+  await materializeHumanState(db, userId, fused);
+
   return {
     run_id: run.id as string,
     generated_at: run.generated_at as string,
@@ -148,6 +154,10 @@ const learningAdherence: MeshHandler = {
       confidence: Math.min(0.9, 0.4 + (outcomes?.length ?? 0) * 0.05),
     });
     if (signalError) throw new Error(signalError.message);
+
+    // Measured outcomes are the only source allowed to promote learning into
+    // durable personal pattern memory.
+    await refreshLearningMemory(db, userId);
   },
 };
 

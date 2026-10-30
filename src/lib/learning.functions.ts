@@ -10,11 +10,11 @@ import {
   adherenceRate,
   axisImpact,
   byType,
-  derivePatterns,
   topFrictions,
   type OutcomeRow,
   type RecRow,
 } from "./learning.server";
+import { refreshLearningMemory } from "./learning-memory.server";
 
 const EffectSchema = z.record(z.enum(AXES), z.number().min(-100).max(100));
 
@@ -50,9 +50,37 @@ export const recordOutcome = createServerFn({ method: "POST" })
 
     await supabase
       .from("recommendations")
-      .update({ status: data.executed === "no" ? "measured" : "measured" })
+      .update({ status: "measured" })
       .eq("id", data.recommendation_id)
       .eq("user_id", userId);
+
+    const actualOutcome = [
+      data.note?.trim() || null,
+      Object.keys(data.effect).length
+        ? `Measured effects: ${Object.entries(data.effect)
+            .map(([axis, value]) => `${axis}=${value}`)
+            .join(", ")}`
+        : null,
+      data.friction ? `Friction: ${data.friction}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+    await supabase
+      .from("decision_memory")
+      .update({
+        actual_outcome: actualOutcome || "Outcome measured without qualitative note.",
+        lesson: data.friction
+          ? `Execution friction observed: ${data.friction}`
+          : data.executed === "yes"
+            ? "Chosen action was executed."
+            : data.executed === "partial"
+              ? "Chosen action was only partially executed."
+              : "Chosen action was not executed.",
+        measured_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId)
+      .eq("recommendation_id", data.recommendation_id);
 
     // The mesh handler recomputes and publishes learning.adherence.
     await publishAndDispatch(supabase, userId, {
@@ -135,41 +163,13 @@ export const getLearningSummary = createServerFn({ method: "GET" })
 export const synthesizePatterns = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase, userId } = context;
-    const [{ data: recs }, { data: outcomes }] = await Promise.all([
-      supabase
-        .from("recommendations")
-        .select("id, type, title, status, created_at")
-        .order("created_at", { ascending: false })
-        .limit(200),
-      supabase
-        .from("recommendation_outcomes")
-        .select("recommendation_id, executed, effect, friction, measured_at")
-        .order("measured_at", { ascending: false })
-        .limit(200),
-    ]);
-
-    const derived = derivePatterns(
-      (recs ?? []) as unknown as RecRow[],
-      (outcomes ?? []) as unknown as OutcomeRow[],
+    const result = await refreshLearningMemory(
+      context.supabase,
+      context.userId,
     );
-
-    await supabase.from("learned_patterns").delete().eq("user_id", userId);
-
-    if (derived.length) {
-      const { error } = await supabase.from("learned_patterns").insert(
-        derived.map((p) => ({
-          user_id: userId,
-          label: p.label,
-          description: p.description,
-          axis: p.axis,
-          evidence_count: p.evidence_count,
-          confidence: p.confidence,
-          active: true,
-        })),
-      );
-      if (error) throw new Error(error.message);
-    }
-
-    return { count: derived.length, patterns: derived };
+    return {
+      count: result.pattern_count,
+      patterns: result.patterns,
+      memories: result.memory_count,
+    };
   });

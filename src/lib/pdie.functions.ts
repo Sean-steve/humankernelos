@@ -10,6 +10,10 @@ import { assertScope } from "./permissions.server";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { outcomeHistoryPrompt, type OutcomeRow, type RecRow } from "./learning.server";
 import {
+  clampRecommendationConfidence,
+  decisionConfidenceCeiling,
+} from "./pdie.server";
+import {
   fuseSignals,
   rankPriorities,
   orchestratorPrompt,
@@ -44,7 +48,9 @@ Rules:
 - assumptions: 1-3 assumptions you are making about the operator's day/context.
 - alternatives: 1-3 other actions considered and why they were not chosen.
 - risks: 1-3 things that could go wrong if the operator follows this recommendation.
-- confidence: 0.0-1.0, honest.
+- confidence: 0.0-1.0, honest. Never imply certainty beyond the stated Human State coverage/confidence.
+- When Human State coverage is low or stale, prefer collecting missing evidence or making a conservative reversible recommendation.
+- Treat accepted/modified/dismissed past decisions as evidence about the operator; do not repeatedly recommend a previously rejected action without new evidence.
 - cost_axes: any of physical, cognitive, emotional, behavioral, lifestyle, operational that this may cost. Empty array if none.
 - trades_off: true when the recommendation gains one axis at the measurable expense of another.
 - sustainability_note: one sentence on the long-term effect. Never sacrifice long-term performance for a short-term win.
@@ -81,6 +87,9 @@ export const generateRecommendation = createServerFn({ method: "POST" })
       { data: pastRecs },
       { data: pastOutcomes },
       { data: learnedPatterns },
+      { data: activeGoals },
+      { data: personalMemory },
+      { data: recentDecisionMemory },
     ] = await Promise.all([
       supabase
         .from("human_states")
@@ -124,11 +133,43 @@ export const generateRecommendation = createServerFn({ method: "POST" })
         .eq("active", true)
         .order("confidence", { ascending: false })
         .limit(8),
+      supabase
+        .from("goals")
+        .select("id, title, description, horizon, priority, progress, target_date")
+        .eq("status", "active")
+        .order("priority", { ascending: true })
+        .limit(12),
+      supabase
+        .from("personal_memory")
+        .select("memory_type, summary, confidence, evidence")
+        .eq("active", true)
+        .order("confidence", { ascending: false, nullsFirst: false })
+        .limit(12),
+      supabase
+        .from("decision_memory")
+        .select("decision_status, chosen_action, expected_outcome, actual_outcome, lesson, confidence, decided_at")
+        .order("decided_at", { ascending: false })
+        .limit(10),
     ]);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: dailyPlan } = await supabase
+      .from("daily_plans")
+      .select("id, status, context_snapshot")
+      .eq("plan_date", today)
+      .maybeSingle();
+    const { data: dailyItems } = dailyPlan
+      ? await supabase
+          .from("daily_plan_items")
+          .select("title, start_at, end_at, priority, protected, flexibility, status, source_type, source_engine")
+          .eq("plan_id", dailyPlan.id)
+          .in("status", ["planned", "current", "deferred"])
+          .order("start_at", { ascending: true, nullsFirst: false })
+      : { data: [] };
 
 
     const hsvSummary = hsvRow
-      ? `HSV as of ${(hsvRow as Record<string, unknown>).as_of}, composite=${(hsvRow as Record<string, unknown>).composite ?? "null"}. ` +
+      ? `HSV as of ${(hsvRow as Record<string, unknown>).as_of}, composite=${(hsvRow as Record<string, unknown>).composite ?? "null"}, coverage=${(hsvRow as Record<string, unknown>).coverage ?? 0}, confidence=${(hsvRow as Record<string, unknown>).confidence ?? "unknown"}, sources=${(hsvRow as Record<string, unknown>).source_count ?? 0}. ` +
         (["physical", "cognitive", "emotional", "behavioral", "lifestyle", "operational"] as const)
           .map((f) => {
             const fam = (hsvRow as Record<string, unknown>)[f] as
@@ -170,6 +211,46 @@ export const generateRecommendation = createServerFn({ method: "POST" })
           .join("\n")
       : "No learned patterns yet.";
 
+    const goalSummary = (activeGoals ?? []).length
+      ? "Active goals, highest priority first:\n" +
+        (activeGoals ?? [])
+          .map(
+            (g) =>
+              `- ${g.title} [${g.horizon}, priority ${g.priority}, progress ${g.progress}%${g.target_date ? `, target ${g.target_date}` : ""}]`,
+          )
+          .join("\n")
+      : "No active goals configured.";
+
+    const memorySummary = (personalMemory ?? []).length
+      ? "Durable personal memory (use as evidence, never as certainty beyond its confidence):\n" +
+        (personalMemory ?? [])
+          .map(
+            (m) =>
+              `- [${m.memory_type}] ${m.summary} (confidence ${m.confidence ?? "unknown"})`,
+          )
+          .join("\n")
+      : "No durable personal memory has been synthesized yet.";
+
+    const decisionMemorySummary = (recentDecisionMemory ?? []).length
+      ? "Recent human decisions and measured lessons:\n" +
+        (recentDecisionMemory ?? [])
+          .map(
+            (decision) =>
+              `- ${decision.decision_status}: ${decision.chosen_action}${decision.lesson ? ` · lesson: ${decision.lesson}` : ""}${decision.actual_outcome ? ` · outcome: ${decision.actual_outcome}` : ""}`,
+          )
+          .join("\n")
+      : "No prior decision memory yet.";
+
+    const planSummary = (dailyItems ?? []).length
+      ? "Authoritative Daily Operating Plan:\n" +
+        (dailyItems ?? [])
+          .map(
+            (item) =>
+              `- ${item.title} · ${item.start_at ?? "unscheduled"} → ${item.end_at ?? "unscheduled"} · ${item.status}${item.protected ? " · PROTECTED" : ""}`,
+          )
+          .join("\n")
+      : "No authoritative Daily Operating Plan items are currently scheduled.";
+
     // Art. IX: the Orchestrator fuses signals, resolves conflicts and ranks what
     // matters now. PDIE decides against that ranking, not a raw signal dump.
     const { fused, conflicts } = fuseSignals(
@@ -187,6 +268,10 @@ export const generateRecommendation = createServerFn({ method: "POST" })
       policySummary,
       historySummary,
       patternSummary,
+      goalSummary,
+      memorySummary,
+      decisionMemorySummary,
+      planSummary,
       `Recommendation type: ${data.type}.`,
 
       data.context ? `Additional context: ${data.context}` : "",
@@ -227,9 +312,21 @@ export const generateRecommendation = createServerFn({ method: "POST" })
       }
     }
 
+    const stateRecord = hsvRow as Record<string, unknown> | null;
+    const confidenceCeiling = decisionConfidenceCeiling({
+      coverage: stateRecord?.coverage as number | null | undefined,
+      confidence: stateRecord?.confidence as number | null | undefined,
+      stateDate: stateRecord?.as_of as string | null | undefined,
+      today,
+    });
+    parsed.confidence = clampRecommendationConfidence(
+      parsed.confidence,
+      confidenceCeiling,
+    );
+
     // Persist
     const composite =
-      (hsvRow as Record<string, unknown> | null)?.composite as number | null | undefined;
+      stateRecord?.composite as number | null | undefined;
     const priority = composite !== null && composite !== undefined ? 100 - composite : 50;
 
     const { data: inserted, error: insertErr } = await supabase
@@ -276,20 +373,65 @@ export const listRecommendations = createServerFn({ method: "GET" })
 
 export const decideRecommendation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) =>
+  .inputValidator((input: unknown) =>
     z
       .object({
         id: z.string().uuid(),
-        status: z.enum(["accepted", "dismissed", "completed"]),
+        status: z.enum(["accepted", "modified", "dismissed", "completed"]),
+        chosen_action: z.string().min(1).max(1000).optional(),
+        expected_outcome: z.string().max(1000).optional(),
       })
-      .parse(data),
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
+    const { data: recommendation, error: readError } = await context.supabase
+      .from("recommendations")
+      .select(
+        "id, type, title, body, evidence, assumptions, alternatives, risks, confidence, state_alignment, priority, urgency",
+      )
+      .eq("id", data.id)
+      .eq("user_id", context.userId)
+      .single();
+    if (readError) throw new Error(readError.message);
+
+    const chosenAction =
+      data.chosen_action ??
+      (data.status === "dismissed" ? "Recommendation dismissed" : recommendation.body);
+    if (data.status === "modified" && !data.chosen_action) {
+      throw new Error("A modified recommendation requires chosen_action.");
+    }
+
+    const decidedAt = new Date().toISOString();
     const { error } = await context.supabase
       .from("recommendations")
-      .update({ status: data.status, decided_at: new Date().toISOString() })
+      .update({ status: data.status, decided_at: decidedAt })
       .eq("id", data.id)
       .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
+
+    const { error: memoryError } = await context.supabase
+      .from("decision_memory")
+      .insert({
+        user_id: context.userId,
+        recommendation_id: recommendation.id,
+        context_snapshot: {
+          recommendation_type: recommendation.type,
+          title: recommendation.title,
+          evidence: recommendation.evidence,
+          assumptions: recommendation.assumptions,
+          risks: recommendation.risks,
+          state_alignment: recommendation.state_alignment,
+          priority: recommendation.priority,
+          urgency: recommendation.urgency,
+        } as never,
+        options: recommendation.alternatives as never,
+        chosen_action: chosenAction,
+        decision_status: data.status,
+        expected_outcome: data.expected_outcome ?? null,
+        confidence: recommendation.confidence,
+        decided_at: decidedAt,
+      });
+    if (memoryError) throw new Error(memoryError.message);
+
     return { ok: true };
   });

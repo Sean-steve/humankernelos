@@ -144,7 +144,7 @@ export const validateEngineInstall = createServerFn({ method: "POST" })
       return { ok: false as const, reasons: result.reasons };
     }
 
-    if (row.lifecycle_state === "REGISTERED") {
+    if (row.lifecycle_state === "REGISTERED" || row.lifecycle_state === "DISABLED") {
       await transition(
         context.supabase,
         context.userId,

@@ -292,7 +292,29 @@ export async function invokeCapability(db: Db, userId: string, input: InvokeInpu
     );
   }
 
-  // 6. consent/permission is evaluated before provider code executes.
+  // 6a. the consumer must be explicitly authorized to invoke this capability.
+  // Kernel-owned consumers retain the existing trusted-default behavior;
+  // external engines fail closed until the operator grants this scope.
+  const invocationScope = `capability:${registered.provider_engine_id}.${registered.capability}`;
+  if (!(await scopeAllowed(db, userId, consumer.engine_id, invocationScope))) {
+    await db.from("audit_log").insert({
+      user_id: userId,
+      action: "permission.denied",
+      resource: `${consumer.engine_id}:${invocationScope}`,
+      detail: {
+        capability: registered.capability,
+        provider: registered.provider_engine_id,
+        consumer: consumer.engine_id,
+      } as never,
+    });
+    return fail(
+      "not_permitted",
+      `Engine "${consumer.engine_id}" is not authorized for "${invocationScope}".`,
+      registered.provider_engine_id,
+    );
+  }
+
+  // 6b. provider-side data consent is evaluated before provider code executes.
   if (
     registered.required_permission &&
     !(await scopeAllowed(

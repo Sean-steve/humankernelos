@@ -30,10 +30,10 @@ type InstalledEngine = {
   version: string;
 };
 
-const engineRoutes: Record<string, string> = {
+const engineRoutes = {
   nutrition: "/nutrition",
   body: "/body",
-};
+} as const;
 
 function EnginesPage() {
   const { session } = useSession();
@@ -71,7 +71,7 @@ function EnginesPage() {
               const operational =
                 runtime?.lifecycle_state === "ENABLED" ||
                 runtime?.lifecycle_state === "RUNNING";
-              const route = engineRoutes[descriptor.id];
+              const route = engineRoutes[descriptor.id as keyof typeof engineRoutes];
 
               return (
                 <article

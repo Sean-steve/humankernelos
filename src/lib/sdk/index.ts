@@ -12,6 +12,8 @@ import {
   heartbeat,
   PLATFORM_VERSION,
   SDK_VERSION,
+  stateIsOperational,
+  type LifecycleState,
 } from "../platform-manager.server";
 import { REGISTERED_ENGINES, type EngineDescriptor } from "../engines/contract";
 import { validateEngineManifest } from "../engines/manifest";
@@ -236,7 +238,7 @@ export function createEngineSdk(opts: SdkOptions) {
       eventType: string,
       handler: Omit<RuntimeEventHandler, "engine_id">,
     ) {
-      await requireInstalled();
+      const manifest = await requireInstalled();
       const runtime: RuntimeEventHandler = {
         ...handler,
         engine_id: engineId,
@@ -249,7 +251,9 @@ export function createEngineSdk(opts: SdkOptions) {
           engine_id: engineId,
           event_type: eventType,
           handler: runtime.handler,
-          enabled: true,
+          enabled: stateIsOperational(
+            manifest.lifecycle_state as LifecycleState,
+          ),
         },
         { onConflict: "user_id,engine_id,event_type,handler" },
       );

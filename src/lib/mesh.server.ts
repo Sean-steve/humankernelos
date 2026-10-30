@@ -1,6 +1,8 @@
 // Platform Event Mesh (Constitution Art. VII / HIS-004). Server-only.
-// Events are published once (idempotency key), then dispatched to every
-// subscribed, active, consented engine handler with retries and dead-lettering.
+//
+// Persisted subscriptions determine delivery. Executable handlers and payload
+// validators are registered at runtime through the generic adapter registry.
+// This keeps the Mesh core unaware of specific external engines.
 
 import {
   fuseSignals,
@@ -15,11 +17,21 @@ import {
   scopeAllowed,
   type Db,
 } from "./permissions.server";
-
-import { validateEvent, CURRENT_SCHEMA_VERSION } from "./events/schemas";
+import {
+  EVENT_SCHEMAS,
+  CURRENT_SCHEMA_VERSION,
+  EventSchemaError,
+} from "./events/schemas";
+import {
+  listRuntimeEventHandlers,
+  registerRuntimeEventHandler,
+  registerRuntimeEventSchema,
+  resolveRuntimeEventHandler,
+  resolveRuntimeEventSchema,
+  type RuntimeEventHandler,
+} from "./runtime/registry.server";
 
 export const MAX_ATTEMPTS = 3;
-/** Exponential backoff (ms) applied between inline retry attempts. */
 export const BACKOFF_MS = [250, 1000, 4000];
 
 export function backoffFor(attempt: number) {
@@ -27,7 +39,6 @@ export function backoffFor(attempt: number) {
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
 
 export type MeshEvent = {
   id: string;
@@ -37,20 +48,16 @@ export type MeshEvent = {
   correlation_id: string;
 };
 
-export type MeshHandler = {
-  engine_id: string;
-  handler: string;
-  /** Data scope the handler needs consent for; null = owns its own data. */
-  scope: string | null;
-  run: (db: Db, userId: string, event: MeshEvent) => Promise<void>;
-};
+export type MeshHandler = RuntimeEventHandler;
 
 /** Recompute the fused view + conflicts and persist an orchestrator run. */
 export async function runAndPersistOrchestrator(db: Db, userId: string) {
   const [{ data: signals }, { data: checkIn }] = await Promise.all([
     db
       .from("engine_signals")
-      .select("engine, signal_key, value_num, value_text, confidence, reliability, trend, occurred_at")
+      .select(
+        "engine, signal_key, value_num, value_text, confidence, reliability, trend, occurred_at",
+      )
       .eq("user_id", userId)
       .order("occurred_at", { ascending: false })
       .limit(300),
@@ -122,28 +129,29 @@ const learningAdherence: MeshHandler = {
   handler: "adherence_recompute",
   scope: "recommendation_outcomes",
   run: async (db, userId) => {
-    const { data: outcomes } = await db
+    const { data: outcomes, error } = await db
       .from("recommendation_outcomes")
       .select("recommendation_id, executed, effect, friction, measured_at")
       .eq("user_id", userId)
       .order("measured_at", { ascending: false })
       .limit(200);
+    if (error) throw new Error(error.message);
 
     const rate = adherenceRate((outcomes ?? []) as unknown as OutcomeRow[]);
     if (rate === null) return;
 
-    const { error } = await db.from("engine_signals").insert({
+    const { error: signalError } = await db.from("engine_signals").insert({
       user_id: userId,
       engine: "learning",
       signal_key: "learning.adherence",
       value_num: rate,
       confidence: Math.min(0.9, 0.4 + (outcomes?.length ?? 0) * 0.05),
     });
-    if (error) throw new Error(error.message);
+    if (signalError) throw new Error(signalError.message);
   },
 };
 
-/** Event type -> handlers. The single source of truth for subscriptions. */
+/** Built-in adapters are bootstrapped through the same runtime registry API. */
 export const EVENT_HANDLERS: Record<string, MeshHandler[]> = {
   CheckInSubmitted: [orchestratorFuse],
   MealLogged: [orchestratorFuse],
@@ -152,22 +160,38 @@ export const EVENT_HANDLERS: Record<string, MeshHandler[]> = {
   OutcomeMeasured: [learningAdherence, orchestratorFuse],
 };
 
-export function subscriptionSeeds() {
-  return Object.entries(EVENT_HANDLERS).flatMap(([event_type, handlers]) =>
-    handlers.map((h) => ({ event_type, engine_id: h.engine_id, handler: h.handler })),
-  );
+for (const [eventType, handlers] of Object.entries(EVENT_HANDLERS)) {
+  for (const handler of handlers) registerRuntimeEventHandler(eventType, handler);
+}
+for (const schema of Object.values(EVENT_SCHEMAS)) {
+  registerRuntimeEventSchema(schema);
 }
 
-function findHandler(eventType: string, engineId: string, handler: string) {
-  return (EVENT_HANDLERS[eventType] ?? []).find(
-    (h) => h.engine_id === engineId && h.handler === handler,
-  );
+export function subscriptionSeeds() {
+  return listRuntimeEventHandlers().map(({ event_type, handler }) => ({
+    event_type,
+    engine_id: handler.engine_id,
+    handler: handler.handler,
+  }));
+}
+
+export function resolveEventHandler(
+  eventType: string,
+  engineId: string,
+  handler: string,
+) {
+  return resolveRuntimeEventHandler(eventType, engineId, handler);
 }
 
 export type DeliveryResult = {
   engine_id: string;
   handler: string;
-  status: "delivered" | "failed" | "dead_letter" | "skipped_disabled" | "denied_consent";
+  status:
+    | "delivered"
+    | "failed"
+    | "dead_letter"
+    | "skipped_disabled"
+    | "denied_consent";
   attempts: number;
   error?: string;
 };
@@ -185,9 +209,8 @@ async function upsertDelivery(
     dead_letter: boolean;
     next_attempt_at?: string | null;
   },
-
 ) {
-  await db.from("hos_event_deliveries").upsert(
+  const { error } = await db.from("hos_event_deliveries").upsert(
     {
       user_id: userId,
       event_id: event.id,
@@ -198,6 +221,7 @@ async function upsertDelivery(
     },
     { onConflict: "event_id,engine_id,handler" },
   );
+  if (error) throw new Error(error.message);
 }
 
 /** Deliver one event to one handler with bounded retries. */
@@ -212,10 +236,15 @@ export async function deliver(
     await upsertDelivery(db, userId, event, h.engine_id, h.handler, {
       status: "skipped_disabled",
       attempts: startingAttempts,
-      last_error: "engine is not active",
+      last_error: "engine is not operational",
       dead_letter: false,
     });
-    return { engine_id: h.engine_id, handler: h.handler, status: "skipped_disabled", attempts: startingAttempts };
+    return {
+      engine_id: h.engine_id,
+      handler: h.handler,
+      status: "skipped_disabled",
+      attempts: startingAttempts,
+    };
   }
 
   if (h.scope && !(await scopeAllowed(db, userId, h.engine_id, h.scope))) {
@@ -231,7 +260,12 @@ export async function deliver(
       resource: `${h.engine_id}:${h.scope}`,
       detail: { event_type: event.type, handler: h.handler } as never,
     });
-    return { engine_id: h.engine_id, handler: h.handler, status: "denied_consent", attempts: startingAttempts };
+    return {
+      engine_id: h.engine_id,
+      handler: h.handler,
+      status: "denied_consent",
+      attempts: startingAttempts,
+    };
   }
 
   let attempts = startingAttempts;
@@ -248,7 +282,12 @@ export async function deliver(
         dead_letter: false,
         next_attempt_at: null,
       });
-      return { engine_id: h.engine_id, handler: h.handler, status: "delivered", attempts };
+      return {
+        engine_id: h.engine_id,
+        handler: h.handler,
+        status: "delivered",
+        attempts,
+      };
     } catch (e) {
       lastError = e instanceof Error ? e.message : String(e);
       if (attempts < MAX_ATTEMPTS) {
@@ -265,7 +304,6 @@ export async function deliver(
     }
   }
 
-
   await upsertDelivery(db, userId, event, h.engine_id, h.handler, {
     status: "dead_letter",
     attempts,
@@ -278,6 +316,7 @@ export async function deliver(
     resource: `${event.type}->${h.engine_id}.${h.handler}`,
     detail: { event_id: event.id, error: lastError } as never,
   });
+
   return {
     engine_id: h.engine_id,
     handler: h.handler,
@@ -287,21 +326,23 @@ export async function deliver(
   };
 }
 
-/** Resolve subscribers for an event: persisted subscriptions, else declared. */
-async function subscribersFor(db: Db, userId: string, eventType: string): Promise<MeshHandler[]> {
-  const { data } = await db
+/** Persisted subscriptions are the sole delivery authority. */
+async function subscribersFor(
+  db: Db,
+  userId: string,
+  eventType: string,
+): Promise<MeshHandler[]> {
+  const { data, error } = await db
     .from("engine_subscriptions")
-    .select("engine_id, handler, enabled")
+    .select("engine_id, handler")
     .eq("user_id", userId)
     .eq("event_type", eventType)
     .eq("enabled", true);
+  if (error) throw new Error(error.message);
 
-  if (data && data.length > 0) {
-    return data
-      .map((r) => findHandler(eventType, r.engine_id, r.handler))
-      .filter((h): h is MeshHandler => !!h);
-  }
-  return EVENT_HANDLERS[eventType] ?? [];
+  return (data ?? [])
+    .map((row) => resolveEventHandler(eventType, row.engine_id, row.handler))
+    .filter((handler): handler is MeshHandler => !!handler);
 }
 
 export type PublishInput = {
@@ -313,13 +354,71 @@ export type PublishInput = {
   schema_version?: number;
 };
 
+async function validateRegisteredEvent(
+  db: Db,
+  userId: string,
+  type: string,
+  payload: Record<string, unknown>,
+  version: number,
+) {
+  const runtimeSchema = resolveRuntimeEventSchema(type, version);
+  if (!runtimeSchema) {
+    throw new EventSchemaError(
+      `No runtime validator is registered for event "${type}" version ${version}.`,
+    );
+  }
+
+  const { data: persisted, error } = await db
+    .from("event_schemas")
+    .select("active")
+    .eq("user_id", userId)
+    .eq("event_type", type)
+    .eq("schema_version", version)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+
+  if (!persisted) {
+    const { error: insertError } = await db.from("event_schemas").insert({
+      user_id: userId,
+      event_type: type,
+      schema_version: version,
+      description: runtimeSchema.description,
+      payload_schema: { runtime_validator: true } as never,
+      active: true,
+    });
+    if (insertError) throw new Error(insertError.message);
+  } else if (!persisted.active) {
+    throw new EventSchemaError(`Event schema "${type}" version ${version} is disabled.`);
+  }
+
+  const parsed = runtimeSchema.payload.safeParse(payload);
+  if (!parsed.success) {
+    throw new EventSchemaError(
+      `Payload for "${type}" failed validation: ${parsed.error.issues
+        .map((issue) => `${issue.path.join(".") || "payload"} ${issue.message}`)
+        .join("; ")}`,
+    );
+  }
+
+  return parsed.data as Record<string, unknown>;
+}
+
 /** Publish an event and dispatch it. The only sanctioned way to emit. */
-export async function publishAndDispatch(db: Db, userId: string, input: PublishInput) {
+export async function publishAndDispatch(
+  db: Db,
+  userId: string,
+  input: PublishInput,
+) {
   await assertEngineActive(db, userId, input.source_engine);
 
   const schema_version = input.schema_version ?? CURRENT_SCHEMA_VERSION;
-  // Refuse unknown types and malformed payloads before anything is persisted.
-  const payload = validateEvent(input.type, input.payload ?? {}, schema_version);
+  const payload = await validateRegisteredEvent(
+    db,
+    userId,
+    input.type,
+    input.payload ?? {},
+    schema_version,
+  );
 
   const insert = {
     user_id: userId,
@@ -327,7 +426,6 @@ export async function publishAndDispatch(db: Db, userId: string, input: PublishI
     source_engine: input.source_engine,
     payload: payload as never,
     schema_version,
-
     ...(input.correlation_id ? { correlation_id: input.correlation_id } : {}),
     ...(input.idempotency_key ? { idempotency_key: input.idempotency_key } : {}),
   };
@@ -339,9 +437,12 @@ export async function publishAndDispatch(db: Db, userId: string, input: PublishI
     .single();
 
   if (error) {
-    // Duplicate idempotency key: the event already exists — treat as success.
     if (error.code === "23505" && input.idempotency_key) {
-      return { event_id: null, deduped: true, deliveries: [] as DeliveryResult[] };
+      return {
+        event_id: null,
+        deduped: true,
+        deliveries: [] as DeliveryResult[],
+      };
     }
     throw new Error(error.message);
   }
@@ -356,8 +457,8 @@ export async function publishAndDispatch(db: Db, userId: string, input: PublishI
 
   const handlers = await subscribersFor(db, userId, event.type);
   const deliveries: DeliveryResult[] = [];
-  for (const h of handlers) {
-    deliveries.push(await deliver(db, userId, event, h));
+  for (const handler of handlers) {
+    deliveries.push(await deliver(db, userId, event, handler));
   }
 
   return { event_id: event.id, deduped: false, deliveries };

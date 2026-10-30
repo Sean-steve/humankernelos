@@ -1168,11 +1168,14 @@ export type Database = {
           behavioral: Json
           cognitive: Json
           composite: number | null
+          confidence: number | null
+          coverage: number | null
           emotional: Json
           id: string
           lifestyle: Json
           operational: Json
           physical: Json
+          source_count: number
           updated_at: string
           user_id: string
         }
@@ -1181,11 +1184,14 @@ export type Database = {
           behavioral?: Json
           cognitive?: Json
           composite?: number | null
+          confidence?: number | null
+          coverage?: number | null
           emotional?: Json
           id?: string
           lifestyle?: Json
           operational?: Json
           physical?: Json
+          source_count?: number
           updated_at?: string
           user_id: string
         }
@@ -1194,11 +1200,14 @@ export type Database = {
           behavioral?: Json
           cognitive?: Json
           composite?: number | null
+          confidence?: number | null
+          coverage?: number | null
           emotional?: Json
           id?: string
           lifestyle?: Json
           operational?: Json
           physical?: Json
+          source_count?: number
           updated_at?: string
           user_id?: string
         }

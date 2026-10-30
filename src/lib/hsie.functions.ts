@@ -30,6 +30,9 @@ export type HumanStateVector = {
   lifestyle: StateFamily;
   operational: StateFamily;
   composite: number | null;
+  coverage: number; // 0..1 fraction of state families with evidence
+  confidence: number | null; // aggregate certainty across populated families
+  source_count: number;
 };
 
 const empty = (note?: string): StateFamily => ({
@@ -114,6 +117,15 @@ export const computeHumanStateVector = createServerFn({ method: "POST" })
             weighted.reduce((a, f) => a + (f.confidence ?? 0.5), 0),
         )
       : null;
+    const coverage = Math.round((weighted.length / 6) * 100) / 100;
+    const confidence = weighted.length
+      ? Math.round(
+          (weighted.reduce((sum, family) => sum + (family.confidence ?? 0.5), 0) /
+            weighted.length) *
+            100,
+        ) / 100
+      : null;
+    const source_count = weighted.reduce((sum, family) => sum + family.inputs.length, 0);
 
     const as_of = today();
     const row = {
@@ -126,6 +138,9 @@ export const computeHumanStateVector = createServerFn({ method: "POST" })
       lifestyle: lifestyle as never,
       operational: operational as never,
       composite,
+      coverage,
+      confidence,
+      source_count,
     };
 
     // Upsert today's HSV
@@ -133,6 +148,38 @@ export const computeHumanStateVector = createServerFn({ method: "POST" })
       .from("human_states")
       .upsert(row, { onConflict: "user_id,as_of" });
     if (error) throw new Error(error.message);
+
+    // Evidence is materialized separately from the HSV projection so every
+    // aggregate value remains traceable to its contributing observations.
+    const { error: deleteEvidenceError } = await supabase
+      .from("human_state_evidence")
+      .delete()
+      .eq("user_id", userId)
+      .eq("state_date", as_of);
+    if (deleteEvidenceError) throw new Error(deleteEvidenceError.message);
+
+    const evidenceRows = fused.flatMap((axis) =>
+      axis.contributions.map((contribution) => ({
+        user_id: userId,
+        state_date: as_of,
+        axis: axis.axis,
+        source_key: contribution.source,
+        source_engine: contribution.engine,
+        raw_value: contribution.raw,
+        normalized_value: contribution.normalized,
+        confidence: contribution.confidence,
+        reliability: contribution.reliability,
+        recency_weight: contribution.recency,
+        trend: contribution.trend,
+        recorded_at: contribution.occurred_at,
+      })),
+    );
+    if (evidenceRows.length > 0) {
+      const { error: evidenceError } = await supabase
+        .from("human_state_evidence")
+        .insert(evidenceRows);
+      if (evidenceError) throw new Error(evidenceError.message);
+    }
 
     const hsv: HumanStateVector = {
       as_of,
@@ -143,6 +190,9 @@ export const computeHumanStateVector = createServerFn({ method: "POST" })
       lifestyle,
       operational,
       composite,
+      coverage,
+      confidence,
+      source_count,
     };
     return { hsv };
   });
@@ -168,6 +218,9 @@ export const getLatestHSV = createServerFn({ method: "GET" })
         lifestyle: empty("Log meals + hydration to populate."),
         operational: empty("Log a check-in to populate."),
         composite: null,
+        coverage: 0,
+        confidence: null,
+        source_count: 0,
       };
       return { hsv: emptyHSV, materialized: false };
     }
@@ -181,6 +234,9 @@ export const getLatestHSV = createServerFn({ method: "GET" })
       lifestyle: row.lifestyle as StateFamily,
       operational: row.operational as StateFamily,
       composite: (row.composite as number | null) ?? null,
+      coverage: Number(row.coverage ?? 0),
+      confidence: (row.confidence as number | null) ?? null,
+      source_count: Number(row.source_count ?? 0),
     };
     return { hsv, materialized: true };
   });

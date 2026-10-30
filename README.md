@@ -105,7 +105,7 @@ npm install
 npm run dev
 ```
 
-The application currently uses TanStack Start, React, TypeScript, Supabase/PostgreSQL, Zod, React Query and Tailwind CSS.
+Bun is the canonical package manager for this repository; `bun.lock` is the authoritative dependency lockfile.\n\nThe application currently uses TanStack Start, React, TypeScript, Supabase/PostgreSQL, Zod, React Query and Tailwind CSS.
 
 ## Live app
 

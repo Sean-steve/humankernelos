@@ -9,6 +9,11 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PlatformStudioRouteImport } from './routes/platform-studio'
+import { Route as PlanRouteImport } from './routes/plan'
+import { Route as MeRouteImport } from './routes/me'
+import { Route as IntelligenceRouteImport } from './routes/intelligence'
+import { Route as EngineRegistryRouteImport } from './routes/engine-registry'
 import { Route as TimelineRouteImport } from './routes/timeline'
 import { Route as StandardsRouteImport } from './routes/standards'
 import { Route as SignalsRouteImport } from './routes/signals'
@@ -28,6 +33,31 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AchievementsRouteImport } from './routes/achievements'
 import { Route as IndexRouteImport } from './routes/index'
 
+const PlatformStudioRoute = PlatformStudioRouteImport.update({
+  id: '/platform-studio',
+  path: '/platform-studio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlanRoute = PlanRouteImport.update({
+  id: '/plan',
+  path: '/plan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MeRoute = MeRouteImport.update({
+  id: '/me',
+  path: '/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntelligenceRoute = IntelligenceRouteImport.update({
+  id: '/intelligence',
+  path: '/intelligence',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EngineRegistryRoute = EngineRegistryRouteImport.update({
+  id: '/engine-registry',
+  path: '/engine-registry',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TimelineRoute = TimelineRouteImport.update({
   id: '/timeline',
   path: '/timeline',
@@ -121,6 +151,11 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/engine-registry': typeof EngineRegistryRoute
+  '/intelligence': typeof IntelligenceRoute
+  '/me': typeof MeRoute
+  '/plan': typeof PlanRoute
+  '/platform-studio': typeof PlatformStudioRoute
   '/achievements': typeof AchievementsRoute
   '/auth': typeof AuthRoute
   '/body': typeof BodyRoute
@@ -141,6 +176,11 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/engine-registry': typeof EngineRegistryRoute
+  '/intelligence': typeof IntelligenceRoute
+  '/me': typeof MeRoute
+  '/plan': typeof PlanRoute
+  '/platform-studio': typeof PlatformStudioRoute
   '/achievements': typeof AchievementsRoute
   '/auth': typeof AuthRoute
   '/body': typeof BodyRoute
@@ -162,6 +202,11 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/engine-registry': typeof EngineRegistryRoute
+  '/intelligence': typeof IntelligenceRoute
+  '/me': typeof MeRoute
+  '/plan': typeof PlanRoute
+  '/platform-studio': typeof PlatformStudioRoute
   '/achievements': typeof AchievementsRoute
   '/auth': typeof AuthRoute
   '/body': typeof BodyRoute
@@ -184,6 +229,11 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/engine-registry'
+    | '/intelligence'
+    | '/me'
+    | '/plan'
+    | '/platform-studio'
     | '/achievements'
     | '/auth'
     | '/body'
@@ -204,6 +254,11 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/engine-registry'
+    | '/intelligence'
+    | '/me'
+    | '/plan'
+    | '/platform-studio'
     | '/achievements'
     | '/auth'
     | '/body'
@@ -224,6 +279,11 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/engine-registry'
+    | '/intelligence'
+    | '/me'
+    | '/plan'
+    | '/platform-studio'
     | '/achievements'
     | '/auth'
     | '/body'
@@ -245,6 +305,11 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  EngineRegistryRoute: typeof EngineRegistryRoute
+  IntelligenceRoute: typeof IntelligenceRoute
+  MeRoute: typeof MeRoute
+  PlanRoute: typeof PlanRoute
+  PlatformStudioRoute: typeof PlatformStudioRoute
   AchievementsRoute: typeof AchievementsRoute
   AuthRoute: typeof AuthRoute
   BodyRoute: typeof BodyRoute
@@ -266,6 +331,41 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/platform-studio': {
+      id: '/platform-studio'
+      path: '/platform-studio'
+      fullPath: '/platform-studio'
+      preLoaderRoute: typeof PlatformStudioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/plan': {
+      id: '/plan'
+      path: '/plan'
+      fullPath: '/plan'
+      preLoaderRoute: typeof PlanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/me': {
+      id: '/me'
+      path: '/me'
+      fullPath: '/me'
+      preLoaderRoute: typeof MeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/intelligence': {
+      id: '/intelligence'
+      path: '/intelligence'
+      fullPath: '/intelligence'
+      preLoaderRoute: typeof IntelligenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/engine-registry': {
+      id: '/engine-registry'
+      path: '/engine-registry'
+      fullPath: '/engine-registry'
+      preLoaderRoute: typeof EngineRegistryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/timeline': {
       id: '/timeline'
       path: '/timeline'
@@ -397,6 +497,11 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  EngineRegistryRoute: EngineRegistryRoute,
+  IntelligenceRoute: IntelligenceRoute,
+  MeRoute: MeRoute,
+  PlanRoute: PlanRoute,
+  PlatformStudioRoute: PlatformStudioRoute,
   AchievementsRoute: AchievementsRoute,
   AuthRoute: AuthRoute,
   BodyRoute: BodyRoute,

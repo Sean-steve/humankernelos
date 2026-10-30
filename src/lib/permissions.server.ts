@@ -19,15 +19,28 @@ export class ConsentDeniedError extends Error {
   }
 }
 
+const TRUSTED_KERNEL_ENGINE_IDS = new Set([
+  "hsie",
+  "pdie",
+  "policy",
+  "learning",
+  "orchestrator",
+  "timeline",
+]);
+
 async function isKernelOwned(db: Db, userId: string, engineId: string) {
+  if (!TRUSTED_KERNEL_ENGINE_IDS.has(engineId)) return false;
+
   const { data } = await db
     .from("engines")
-    .select("owner")
+    .select("engine_id")
     .eq("user_id", userId)
     .eq("engine_id", engineId)
     .maybeSingle();
 
-  return (data?.owner ?? "").toLowerCase().includes("kernel");
+  // Trust is rooted in the platform-owned engine identifier, never in
+  // manifest-controlled owner text.
+  return !!data;
 }
 
 /** Resolve whether an engine currently holds consent for a data scope. */

@@ -67,11 +67,15 @@ function EngineRegistryPage() {
     queryFn: () => list(),
   });
 
+  const builtInEngines = REGISTERED_ENGINES.filter(
+    (engine) => engine.owner !== "External Operating Engine",
+  );
+
   const installAll = useMutation({
     mutationFn: async () => {
-      // Registration is deliberately separated from activation so dependency
-      // validation can see the complete installed set.
-      for (const e of REGISTERED_ENGINES) {
+      // External engines are never auto-installed or auto-enabled. They use
+      // their dedicated discovery + consent workflow.
+      for (const e of builtInEngines) {
         await register({
           data: {
             engine_id: e.id,
@@ -92,7 +96,7 @@ function EngineRegistryPage() {
         });
       }
 
-      for (const e of REGISTERED_ENGINES) {
+      for (const e of builtInEngines) {
         const result = await validate({ data: { engine_id: e.id } });
         if (!result.ok) {
           throw new Error(
@@ -101,7 +105,7 @@ function EngineRegistryPage() {
         }
       }
 
-      for (const e of REGISTERED_ENGINES) {
+      for (const e of builtInEngines) {
         await transition({
           data: {
             engine_id: e.id,
@@ -159,7 +163,8 @@ function EngineRegistryPage() {
         <div>
           <div className="font-display">Built-in engine catalogue</div>
           <div className="text-sm text-muted-foreground">
-            {installed.length} installed · {REGISTERED_ENGINES.length} available
+            {installed.length} installed · {builtInEngines.length} built-in ·{" "}
+            {REGISTERED_ENGINES.length - builtInEngines.length} external
           </div>
         </div>
         <button
@@ -167,7 +172,7 @@ function EngineRegistryPage() {
           disabled={installAll.isPending}
           className="rounded-md border hairline px-3 py-1.5 text-sm hover:bg-foreground/5 disabled:opacity-50"
         >
-          {installAll.isPending ? "Registering & validating…" : "Register / sync all"}
+          {installAll.isPending ? "Registering & validating…" : "Register / sync built-ins"}
         </button>
       </section>
 

@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { assertEngineActive, assertScope } from "./permissions.server";
+import { assertEngineActive, assertScope, engineIsActive } from "./permissions.server";
+import { publishAndDispatch } from "./mesh.server";
 import {
   materializeDailyPlanContext,
   protectedConflict,
@@ -10,6 +11,48 @@ import {
 
 function localDate() {
   return new Date().toISOString().slice(0, 10);
+}
+
+async function emitDailyPlanChanged(
+  context: { supabase: Parameters<typeof publishAndDispatch>[0]; userId: string },
+  planId: string,
+  planDate: string,
+  reason: string,
+) {
+  if (!(await engineIsActive(context.supabase, context.userId, "daily-plan"))) return;
+  await publishAndDispatch(context.supabase, context.userId, {
+    type: "DailyPlanChanged",
+    source_engine: "daily-plan",
+    payload: {
+      plan_id: planId,
+      plan_date: planDate,
+      reason,
+    },
+    idempotency_key: `daily-plan:${planId}:${reason}:${Date.now()}`,
+  });
+}
+
+async function emitScheduleProposalResolved(
+  context: { supabase: Parameters<typeof publishAndDispatch>[0]; userId: string },
+  input: {
+    proposalId: string;
+    sourceEngine: string;
+    externalProposalId: string;
+    decision: "ACCEPT" | "REJECT";
+  },
+) {
+  if (!(await engineIsActive(context.supabase, context.userId, "daily-plan"))) return;
+  await publishAndDispatch(context.supabase, context.userId, {
+    type: "ScheduleProposalResolved",
+    source_engine: "daily-plan",
+    payload: {
+      proposal_id: input.proposalId,
+      source_engine: input.sourceEngine,
+      external_proposal_id: input.externalProposalId,
+      decision: input.decision,
+    },
+    idempotency_key: `schedule-proposal:${input.proposalId}:${input.decision}`,
+  });
 }
 
 const DateInput = z.object({

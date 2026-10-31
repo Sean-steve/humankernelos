@@ -150,8 +150,8 @@ export async function getProductionCertificationSnapshot(
       status: unhealthyOperational.length === 0 ? "pass" : "fail",
       detail:
         unhealthyOperational.length === 0
-          ? \`\${operationalEngines.length} operational engine(s), none degraded.\`
-          : \`\${unhealthyOperational.length} operational engine(s) are degraded, failed, or unresponsive.\`,
+          ? `${operationalEngines.length} operational engine(s), none degraded.`
+          : `${unhealthyOperational.length} operational engine(s) are degraded, failed, or unresponsive.`,
     },
     {
       id: "capability_reliability",
@@ -165,8 +165,8 @@ export async function getProductionCertificationSnapshot(
             : "fail",
       detail:
         invocationRows.length < 10
-          ? \`Only \${invocationRows.length} invocation(s); at least 10 are required for a reliability judgment.\`
-          : \`\${Math.round((invocationSuccessRate ?? 0) * 10000) / 100}% success across \${invocationRows.length} invocation(s).\`,
+          ? `Only ${invocationRows.length} invocation(s); at least 10 are required for a reliability judgment.`
+          : `${Math.round((invocationSuccessRate ?? 0) * 10000) / 100}% success across ${invocationRows.length} invocation(s).`,
     },
     {
       id: "event_mesh",
@@ -175,8 +175,8 @@ export async function getProductionCertificationSnapshot(
       status: deadLetters === 0 ? "pass" : "fail",
       detail:
         deadLetters === 0
-          ? \`No dead letters across \${deliveryRows.length} recent delivery record(s).\`
-          : \`\${deadLetters} dead-letter delivery record(s) require resolution.\`,
+          ? `No dead letters across ${deliveryRows.length} recent delivery record(s).`
+          : `${deadLetters} dead-letter delivery record(s) require resolution.`,
     },
     {
       id: "connectors",
@@ -187,7 +187,7 @@ export async function getProductionCertificationSnapshot(
       detail:
         degradedConnectedConnectors.length === 0
           ? "No connected integration reports degraded/unavailable health."
-          : \`\${degradedConnectedConnectors.length} connected integration(s) are degraded.\`,
+          : `${degradedConnectedConnectors.length} connected integration(s) are degraded.`,
     },
     {
       id: "execution_os",
@@ -205,7 +205,7 @@ export async function getProductionCertificationSnapshot(
       detail: !requireExecutionOs
         ? "Execution OS is not marked as a required deployment dependency."
         : executionEngine
-          ? \`Execution OS is \${executionEngine.lifecycle_state}/\${executionEngine.health}.\`
+          ? `Execution OS is ${executionEngine.lifecycle_state}/${executionEngine.health}.`
           : "Execution OS is required but is not installed for this user.",
     },
   ];

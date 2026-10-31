@@ -114,6 +114,19 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
       })
       .passthrough(),
   },
+  ScheduleProposalResolved: {
+    type: "ScheduleProposalResolved",
+    version: 1,
+    description: "HOS resolved an external engine schedule proposal.",
+    payload: z
+      .object({
+        proposal_id: z.string().uuid(),
+        source_engine: z.string(),
+        external_proposal_id: z.string(),
+        decision: z.enum(["ACCEPT", "REJECT"]),
+      })
+      .passthrough(),
+  },
 };
 
 export class EventSchemaError extends Error {

@@ -128,6 +128,21 @@ const SIGNAL_MAP: Record<
     normalize: (v) => clamp(v),
     baseReliability: 0.65,
   },
+  "execution.outcome_score": {
+    axis: "behavioral",
+    normalize: (v) => clamp(v),
+    baseReliability: 0.8,
+  },
+  "execution.recovery_score": {
+    axis: "behavioral",
+    normalize: (v) => clamp(v),
+    baseReliability: 0.75,
+  },
+  "execution.schedule_reliability": {
+    axis: "operational",
+    normalize: (v) => clamp(v),
+    baseReliability: 0.75,
+  },
 };
 
 const CHECKIN_MAP: {

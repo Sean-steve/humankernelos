@@ -231,13 +231,16 @@ async function executionOsTimezone(db: Db, userId: string) {
   return data?.value?.trim() || process.env.HOS_DEFAULT_TIMEZONE || "UTC";
 }
 
-export async function projectDailyPlanForExecutionOs(db: Db, userId: string) {
-  const today = new Date().toISOString().slice(0, 10);
+export async function projectDailyPlanForExecutionOs(
+  db: Db,
+  userId: string,
+  planDate = new Date().toISOString().slice(0, 10),
+) {
   const { data: plan, error: planError } = await db
     .from("daily_plans")
     .select("id, plan_date, status, updated_at")
     .eq("user_id", userId)
-    .eq("plan_date", today)
+    .eq("plan_date", planDate)
     .maybeSingle();
   if (planError) throw new Error(planError.message);
   if (!plan) return null;
@@ -386,8 +389,13 @@ export async function projectHumanStateForExecutionOs(db: Db, userId: string) {
   };
 }
 
-async function sendPlanToExecutionOs(db: Db, userId: string, eventId: string) {
-  const plan = await projectDailyPlanForExecutionOs(db, userId);
+async function sendPlanToExecutionOs(
+  db: Db,
+  userId: string,
+  eventId: string,
+  planDate?: string,
+) {
+  const plan = await projectDailyPlanForExecutionOs(db, userId, planDate);
   if (!plan) return;
   await callExecutionOs(db, userId, {
     path: "/api/v1/hos/signals",
@@ -608,7 +616,14 @@ registerRuntimeEventHandler("DailyPlanChanged", {
   handler: "accept_hos_daily_plan",
   scope: "execution.schedule.write",
   run: async (db, userId, event) => {
-    await sendPlanToExecutionOs(db, userId, event.id);
+    await sendPlanToExecutionOs(
+      db,
+      userId,
+      event.id,
+      typeof event.payload.plan_date === "string"
+        ? event.payload.plan_date
+        : undefined,
+    );
   },
 });
 

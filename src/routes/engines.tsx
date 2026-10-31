@@ -33,6 +33,7 @@ type InstalledEngine = {
 const engineRoutes = {
   nutrition: "/nutrition",
   body: "/body",
+  "execution-os": "/execution-os",
 } as const;
 
 function EnginesPage() {
@@ -107,12 +108,12 @@ function EnginesPage() {
                     <div className="text-xs text-muted-foreground">
                       {runtime ? `v${runtime.version} · ${runtime.health}` : "No runtime installed"}
                     </div>
-                    {route && operational ? (
+                    {route && (operational || descriptor.id === "execution-os") ? (
                       <Link
                         to={route}
                         className="inline-flex items-center gap-1 text-xs text-foreground hover:text-primary"
                       >
-                        Open <ChevronRight className="h-3.5 w-3.5" />
+                        {operational ? "Open" : "Set up"} <ChevronRight className="h-3.5 w-3.5" />
                       </Link>
                     ) : (
                       <span className="text-xs text-muted-foreground">No workspace yet</span>

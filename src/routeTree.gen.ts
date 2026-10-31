@@ -14,6 +14,7 @@ import { Route as PlanRouteImport } from './routes/plan'
 import { Route as MeRouteImport } from './routes/me'
 import { Route as IntelligenceRouteImport } from './routes/intelligence'
 import { Route as EngineRegistryRouteImport } from './routes/engine-registry'
+import { Route as ExecutionOsRouteImport } from './routes/execution-os'
 import { Route as TimelineRouteImport } from './routes/timeline'
 import { Route as StandardsRouteImport } from './routes/standards'
 import { Route as SignalsRouteImport } from './routes/signals'
@@ -56,6 +57,11 @@ const IntelligenceRoute = IntelligenceRouteImport.update({
 const EngineRegistryRoute = EngineRegistryRouteImport.update({
   id: '/engine-registry',
   path: '/engine-registry',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExecutionOsRoute = ExecutionOsRouteImport.update({
+  id: '/execution-os',
+  path: '/execution-os',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TimelineRoute = TimelineRouteImport.update({
@@ -151,7 +157,9 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/execution-os': typeof ExecutionOsRoute
   '/engine-registry': typeof EngineRegistryRoute
+  '/execution-os': typeof ExecutionOsRoute
   '/intelligence': typeof IntelligenceRoute
   '/me': typeof MeRoute
   '/plan': typeof PlanRoute
@@ -176,6 +184,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/execution-os': typeof ExecutionOsRoute
   '/engine-registry': typeof EngineRegistryRoute
   '/intelligence': typeof IntelligenceRoute
   '/me': typeof MeRoute
@@ -202,6 +211,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/execution-os': typeof ExecutionOsRoute
   '/engine-registry': typeof EngineRegistryRoute
   '/intelligence': typeof IntelligenceRoute
   '/me': typeof MeRoute
@@ -229,6 +239,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/execution-os'
     | '/engine-registry'
     | '/intelligence'
     | '/me'
@@ -254,6 +265,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/execution-os'
     | '/engine-registry'
     | '/intelligence'
     | '/me'
@@ -279,6 +291,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/execution-os'
     | '/engine-registry'
     | '/intelligence'
     | '/me'
@@ -305,6 +318,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ExecutionOsRoute: typeof ExecutionOsRoute
   EngineRegistryRoute: typeof EngineRegistryRoute
   IntelligenceRoute: typeof IntelligenceRoute
   MeRoute: typeof MeRoute
@@ -331,6 +345,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/execution-os': {
+      id: '/execution-os'
+      path: '/execution-os'
+      fullPath: '/execution-os'
+      preLoaderRoute: typeof ExecutionOsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/platform-studio': {
       id: '/platform-studio'
       path: '/platform-studio'
@@ -497,6 +518,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ExecutionOsRoute: ExecutionOsRoute,
   EngineRegistryRoute: EngineRegistryRoute,
   IntelligenceRoute: IntelligenceRoute,
   MeRoute: MeRoute,

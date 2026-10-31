@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import "../runtime/bootstrap.server";
 import {
   EVENT_HANDLERS,
   MAX_ATTEMPTS,
@@ -43,7 +44,7 @@ describe("event mesh subscriptions", () => {
 
   it("covers every event any engine declares as consumed", () => {
     const consumed = new Set(REGISTERED_ENGINES.flatMap((e) => e.eventsConsumed));
-    const routed = new Set(Object.keys(EVENT_HANDLERS));
+    const routed = new Set(subscriptionSeeds().map((seed) => seed.event_type));
     for (const type of consumed) {
       expect(routed.has(type), `${type} is consumed but never dispatched`).toBe(true);
     }

@@ -58,7 +58,7 @@ export async function runAndPersistOrchestrator(db: Db, userId: string) {
     db
       .from("engine_signals")
       .select(
-        "engine, signal_key, value_num, value_text, confidence, reliability, trend, occurred_at",
+        "engine, signal_key, value_num, value_text, confidence, reliability, trend, metadata, occurred_at",
       )
       .eq("user_id", userId)
       .order("occurred_at", { ascending: false })
@@ -109,7 +109,23 @@ export async function runAndPersistOrchestrator(db: Db, userId: string) {
 
   // The Orchestrator and HSIE share one fused truth. Every successful fusion
   // materializes the canonical HSV and its evidence trail.
-  await materializeHumanState(db, userId, fused);
+  const hsv = await materializeHumanState(db, userId, fused);
+
+  // Human State remains Kernel-owned. External engines receive only their
+  // adapter-defined minimum-necessary projection through Event Mesh delivery.
+  if (await engineIsActive(db, userId, "hsie")) {
+    await publishAndDispatch(db, userId, {
+      type: "HumanStateUpdated",
+      source_engine: "hsie",
+      payload: {
+        as_of: hsv.as_of,
+        coverage: hsv.coverage,
+        confidence: hsv.confidence,
+        source_count: hsv.source_count,
+      },
+      idempotency_key: `human-state:${run.id}`,
+    });
+  }
 
   return {
     run_id: run.id as string,
@@ -362,6 +378,7 @@ export type PublishInput = {
   correlation_id?: string;
   idempotency_key?: string;
   schema_version?: number;
+  occurred_at?: string;
 };
 
 async function validateRegisteredEvent(
@@ -438,6 +455,7 @@ export async function publishAndDispatch(
     schema_version,
     ...(input.correlation_id ? { correlation_id: input.correlation_id } : {}),
     ...(input.idempotency_key ? { idempotency_key: input.idempotency_key } : {}),
+    ...(input.occurred_at ? { occurred_at: input.occurred_at } : {}),
   };
 
   const { data, error } = await db

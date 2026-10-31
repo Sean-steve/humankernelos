@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { assertEngineActive, assertScope } from "./permissions.server";
+import { assertEngineActive, assertScope, engineIsActive } from "./permissions.server";
+import { publishAndDispatch } from "./mesh.server";
 import {
   materializeDailyPlanContext,
   protectedConflict,
@@ -10,6 +11,62 @@ import {
 
 function localDate() {
   return new Date().toISOString().slice(0, 10);
+}
+
+async function emitDailyPlanChanged(
+  context: { supabase: Parameters<typeof publishAndDispatch>[0]; userId: string },
+  planId: string,
+  planDate: string,
+  reason: string,
+) {
+  if (!(await engineIsActive(context.supabase, context.userId, "daily-plan"))) return;
+  await publishAndDispatch(context.supabase, context.userId, {
+    type: "DailyPlanChanged",
+    source_engine: "daily-plan",
+    payload: {
+      plan_id: planId,
+      plan_date: planDate,
+      reason,
+    },
+    idempotency_key: `daily-plan:${planId}:${reason}:${Date.now()}`,
+  });
+}
+
+async function emitScheduleProposalResolved(
+  context: { supabase: Parameters<typeof publishAndDispatch>[0]; userId: string },
+  input: {
+    proposalId: string;
+    sourceEngine: string;
+    externalProposalId: string;
+    decision: "ACCEPT" | "REJECT";
+  },
+) {
+  if (!(await engineIsActive(context.supabase, context.userId, "daily-plan"))) return;
+  await publishAndDispatch(context.supabase, context.userId, {
+    type: "ScheduleProposalResolved",
+    source_engine: "daily-plan",
+    payload: {
+      proposal_id: input.proposalId,
+      source_engine: input.sourceEngine,
+      external_proposal_id: input.externalProposalId,
+      decision: input.decision,
+    },
+    idempotency_key: `schedule-proposal:${input.proposalId}:${input.decision}`,
+  });
+}
+
+async function planDateForId(
+  context: { supabase: Parameters<typeof publishAndDispatch>[0]; userId: string },
+  planId: string,
+) {
+  const { data, error } = await context.supabase
+    .from("daily_plans")
+    .select("plan_date")
+    .eq("user_id", context.userId)
+    .eq("id", planId)
+    .single();
+  if (error) throw new Error(error.message);
+  return data.plan_date;
 }
 
 const DateInput = z.object({
@@ -116,6 +173,12 @@ export const upsertDailyPlanItem = createServerFn({ method: "POST" })
         .select()
         .single();
       if (error) throw new Error(error.message);
+      await emitDailyPlanChanged(
+        context,
+        plan.id,
+        planDate,
+        "plan_item_updated",
+      );
       return { item };
     }
 
@@ -125,6 +188,12 @@ export const upsertDailyPlanItem = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
+    await emitDailyPlanChanged(
+      context,
+      plan.id,
+      planDate,
+      "plan_item_created",
+    );
     return { item };
   });
 
@@ -137,12 +206,21 @@ export const setDailyPlanStatus = createServerFn({ method: "POST" })
     }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
+    const { data: item, error } = await context.supabase
       .from("daily_plan_items")
       .update({ status: data.status })
       .eq("id", data.id)
-      .eq("user_id", context.userId);
+      .eq("user_id", context.userId)
+      .select("plan_id")
+      .single();
     if (error) throw new Error(error.message);
+    const planDate = await planDateForId(context, item.plan_id);
+    await emitDailyPlanChanged(
+      context,
+      item.plan_id,
+      planDate,
+      `plan_item_status_${data.status}`,
+    );
     return { ok: true };
   });
 
@@ -220,17 +298,40 @@ export const decideDailyPlanProposal = createServerFn({ method: "POST" })
       throw new Error("This proposal has already been decided.");
     }
 
+    const priorResolution =
+      proposal.resolution && typeof proposal.resolution === "object"
+        ? (proposal.resolution as Record<string, unknown>)
+        : {};
+    const externalProposalId =
+      typeof priorResolution.external_proposal_id === "string"
+        ? priorResolution.external_proposal_id
+        : null;
+
     if (data.decision === "rejected" || data.decision === "deferred") {
       const { error } = await context.supabase
         .from("daily_plan_proposals")
         .update({
           status: data.decision,
           decided_at: new Date().toISOString(),
-          resolution: { note: data.note ?? null } as never,
+          resolution: {
+            ...priorResolution,
+            note: data.note ?? null,
+          } as never,
         })
         .eq("id", proposal.id)
         .eq("user_id", context.userId);
       if (error) throw new Error(error.message);
+      if (
+        data.decision === "rejected" &&
+        externalProposalId
+      ) {
+        await emitScheduleProposalResolved(context, {
+          proposalId: proposal.id,
+          sourceEngine: proposal.source_engine,
+          externalProposalId,
+          decision: "REJECT",
+        });
+      }
       return { decision: data.decision, item: null };
     }
 
@@ -285,6 +386,7 @@ export const decideDailyPlanProposal = createServerFn({ method: "POST" })
         accepted_item_id: item.id,
         decided_at: new Date().toISOString(),
         resolution: {
+          ...priorResolution,
           start_at: startAt,
           end_at: endAt,
           note: data.note ?? null,
@@ -293,6 +395,21 @@ export const decideDailyPlanProposal = createServerFn({ method: "POST" })
       .eq("id", proposal.id)
       .eq("user_id", context.userId);
     if (updateError) throw new Error(updateError.message);
+
+    if (externalProposalId) {
+      await emitScheduleProposalResolved(context, {
+        proposalId: proposal.id,
+        sourceEngine: proposal.source_engine,
+        externalProposalId,
+        decision: "ACCEPT",
+      });
+    }
+    await emitDailyPlanChanged(
+      context,
+      plan.id,
+      proposal.plan_date,
+      `schedule_proposal_${data.decision}`,
+    );
 
     return { decision: data.decision, item };
   });
@@ -310,5 +427,11 @@ export const activateDailyPlan = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
+    await emitDailyPlanChanged(
+      context,
+      active.id,
+      active.plan_date,
+      "plan_activated",
+    );
     return { plan: active };
   });

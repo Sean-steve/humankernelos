@@ -20,6 +20,7 @@ export type RawSignal = {
   confidence: number | string | null;
   reliability: number | string | null;
   trend?: string | null;
+  metadata?: Record<string, unknown> | null;
   occurred_at: string;
 };
 
@@ -159,19 +160,49 @@ function buildContributions(signals: RawSignal[], checkIn: CheckIn, now: number)
     (a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime(),
   )) {
     if (seen.has(s.signal_key)) continue;
-    const spec = SIGNAL_MAP[s.signal_key];
     const raw = toNum(s.value_num);
-    if (!spec || raw === null) continue;
+    if (raw === null) continue;
+
+    const staticSpec = SIGNAL_MAP[s.signal_key];
+    const metadata =
+      s.metadata && typeof s.metadata === "object" ? s.metadata : {};
+    const declaredAxis =
+      typeof metadata.hos_axis === "string" &&
+      AXES.includes(metadata.hos_axis as Axis)
+        ? (metadata.hos_axis as Axis)
+        : null;
+    const declaredNormalized = toNum(
+      typeof metadata.normalized_value === "number" ||
+        typeof metadata.normalized_value === "string"
+        ? metadata.normalized_value
+        : null,
+    );
+    const declaredReliability = toNum(
+      typeof metadata.base_reliability === "number" ||
+        typeof metadata.base_reliability === "string"
+        ? metadata.base_reliability
+        : null,
+    );
+
+    const axis = staticSpec?.axis ?? declaredAxis;
+    if (!axis) continue;
     seen.add(s.signal_key);
 
     const confidence = toNum(s.confidence) ?? 0.5;
-    const reliability = toNum(s.reliability) ?? spec.baseReliability;
+    const reliability =
+      toNum(s.reliability) ??
+      staticSpec?.baseReliability ??
+      declaredReliability ??
+      0.5;
+    const normalized = staticSpec
+      ? staticSpec.normalize(raw)
+      : declaredNormalized ?? raw;
     const recency = recencyWeight(s.occurred_at, now);
-    byAxis.get(spec.axis)!.push({
+    byAxis.get(axis)!.push({
       source: s.signal_key,
       engine: s.engine,
       raw,
-      normalized: Math.round(spec.normalize(raw)),
+      normalized: Math.round(clamp(normalized)),
       weight: Math.round(confidence * reliability * recency * 1000) / 1000,
       confidence,
       reliability,

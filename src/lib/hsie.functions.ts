@@ -4,7 +4,7 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { assertScope } from "./permissions.server";
+import { assertScope, engineIsActive } from "./permissions.server";
 import {
   fuseSignals,
   type CheckIn,
@@ -35,7 +35,7 @@ export const computeHumanStateVector = createServerFn({ method: "POST" })
       supabase
         .from("engine_signals")
         .select(
-          "engine, signal_key, value_num, value_text, confidence, reliability, trend, occurred_at",
+          "engine, signal_key, value_num, value_text, confidence, reliability, trend, metadata, occurred_at",
         )
         .order("occurred_at", { ascending: false })
         .limit(300),
@@ -47,6 +47,20 @@ export const computeHumanStateVector = createServerFn({ method: "POST" })
     );
 
     const hsv = await materializeHumanState(supabase, userId, fused);
+    if (await engineIsActive(supabase, userId, "hsie")) {
+      const { publishAndDispatch } = await import("./mesh.server");
+      await publishAndDispatch(supabase, userId, {
+        type: "HumanStateUpdated",
+        source_engine: "hsie",
+        payload: {
+          as_of: hsv.as_of,
+          coverage: hsv.coverage,
+          confidence: hsv.confidence,
+          source_count: hsv.source_count,
+        },
+        idempotency_key: `human-state:manual:${hsv.as_of}:${hsv.source_count}`,
+      });
+    }
     return { hsv };
   });
 

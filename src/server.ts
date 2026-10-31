@@ -1,8 +1,10 @@
 import "./lib/error-capture";
+import "./lib/runtime/bootstrap.server";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { handlePlatformProbe } from "./lib/api/platform-api.server";
+import { handleExternalEngineIngress } from "./lib/external-engines/ingress.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -48,6 +50,9 @@ function isH3SwallowedErrorBody(body: string): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const externalIngress = await handleExternalEngineIngress(request);
+      if (externalIngress) return externalIngress;
+
       const probe = handlePlatformProbe(request);
       if (probe) return probe;
 

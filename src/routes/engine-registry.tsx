@@ -68,7 +68,9 @@ function EngineRegistryPage() {
   });
 
   const builtInEngines = REGISTERED_ENGINES.filter(
-    (engine) => engine.owner !== "External Operating Engine",
+    (engine) =>
+      engine.owner !== "External Operating Engine" &&
+      engine.status !== "deprecated",
   );
 
   const installAll = useMutation({

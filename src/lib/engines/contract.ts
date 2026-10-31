@@ -180,7 +180,7 @@ export const REGISTERED_ENGINES: EngineDescriptor[] = [
       "execution.decision.requested",
       "execution.behavior.signal",
     ],
-    eventsConsumed: ["DailyPlanChanged", "HumanStateUpdated", "RecommendationDecided"],
+    eventsConsumed: ["DailyPlanChanged", "HumanStateUpdated", "RecommendationDecided", "ScheduleProposalResolved"],
     publishedSignals: [
       "execution.outcome_score",
       "execution.recovery_score",

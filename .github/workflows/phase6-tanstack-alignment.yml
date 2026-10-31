@@ -1,0 +1,45 @@
+name: Phase 6 TanStack Alignment
+
+on:
+  push:
+    branches:
+      - phase-6-production-certification
+
+permissions:
+  contents: write
+
+jobs:
+  align:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: phase-6-production-certification
+
+      - name: Use Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+
+      - name: Install current graph
+        run: bun install --frozen-lockfile
+
+      - name: Align patched TanStack stack
+        run: |
+          bun update @tanstack/react-start@1.168.60 @tanstack/react-router@1.170.41 @tanstack/router-plugin@1.168.42
+
+      - name: Verify dependency security
+        run: bun audit --prod --audit-level=high
+
+      - name: Commit alignment
+        run: |
+          if git diff --quiet -- package.json bun.lock; then
+            echo "TanStack graph already aligned."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json bun.lock
+          git commit -m "security: align patched TanStack production stack"
+          git push origin HEAD:phase-6-production-certification

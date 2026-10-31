@@ -26,6 +26,7 @@ const TRUSTED_KERNEL_ENGINE_IDS = new Set([
   "learning",
   "orchestrator",
   "timeline",
+  "daily-plan",
 ]);
 
 async function isKernelOwned(db: Db, userId: string, engineId: string) {

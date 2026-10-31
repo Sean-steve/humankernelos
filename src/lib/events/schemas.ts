@@ -78,6 +78,42 @@ export const EVENT_SCHEMAS: Record<string, EventSchema> = {
       })
       .passthrough(),
   },
+  DailyPlanChanged: {
+    type: "DailyPlanChanged",
+    version: 1,
+    description: "The authoritative Daily Operating Plan changed.",
+    payload: z
+      .object({
+        plan_id: z.string().uuid().optional(),
+        plan_date: z.string().optional(),
+        reason: z.string().max(160).optional(),
+      })
+      .passthrough(),
+  },
+  HumanStateUpdated: {
+    type: "HumanStateUpdated",
+    version: 1,
+    description: "The canonical Human State Vector was rematerialized from current evidence.",
+    payload: z
+      .object({
+        as_of: z.string(),
+        coverage: z.number().min(0).max(1),
+        confidence: z.number().min(0).max(1).nullable(),
+        source_count: z.number().int().min(0),
+      })
+      .passthrough(),
+  },
+  RecommendationDecided: {
+    type: "RecommendationDecided",
+    version: 1,
+    description: "The human accepted, modified, dismissed, or completed a PDIE recommendation.",
+    payload: z
+      .object({
+        recommendation_id: z.string().uuid(),
+        decision_status: z.string(),
+      })
+      .passthrough(),
+  },
 };
 
 export class EventSchemaError extends Error {

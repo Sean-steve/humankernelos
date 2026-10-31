@@ -34,9 +34,24 @@ export type RuntimeEventSchema = {
   payload: ZodTypeAny;
 };
 
+export type RuntimeLifecycleAdapter = {
+  engine_id: string;
+  beforeTransition?: (
+    db: Db,
+    userId: string,
+    from: string,
+    to: string,
+  ) => Promise<void>;
+  health?: (db: Db, userId: string) => Promise<{
+    health: "healthy" | "degraded" | "unresponsive" | "failed";
+    note?: string;
+  }>;
+};
+
 const capabilities = new Map<string, RuntimeCapability>();
 const eventHandlers = new Map<string, RuntimeEventHandler>();
 const eventSchemas = new Map<string, RuntimeEventSchema>();
+const lifecycleAdapters = new Map<string, RuntimeLifecycleAdapter>();
 
 function capabilityKey(provider: string, capability: string, version: string) {
   return `${provider}::${capability}::${version}`;
@@ -129,9 +144,23 @@ export function listRuntimeEventSchemas() {
   return Array.from(eventSchemas.values());
 }
 
+export function registerRuntimeLifecycleAdapter(adapter: RuntimeLifecycleAdapter) {
+  lifecycleAdapters.set(adapter.engine_id, adapter);
+  return adapter;
+}
+
+export function resolveRuntimeLifecycleAdapter(engineId: string) {
+  return lifecycleAdapters.get(engineId);
+}
+
+export function listRuntimeLifecycleAdapters() {
+  return Array.from(lifecycleAdapters.values());
+}
+
 /** Test-only isolation for registry conformance tests. */
 export function resetRuntimeRegistryForTests() {
   capabilities.clear();
   eventHandlers.clear();
   eventSchemas.clear();
+  lifecycleAdapters.clear();
 }

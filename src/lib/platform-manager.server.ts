@@ -4,6 +4,7 @@
 
 import type { EngineDescriptor } from "./engines/contract";
 import type { Db } from "./permissions.server";
+import { resolveRuntimeLifecycleAdapter } from "./runtime/registry.server";
 
 export const PLATFORM_VERSION = "1.0.0";
 export const SDK_VERSION = "1.0.0";
@@ -143,6 +144,27 @@ export async function transition(
       detail: { from, to } as never,
     });
     throw new LifecycleError(`Illegal transition ${from} → ${to} for engine "${engineId}".`);
+  }
+
+  // External engines may bind lifecycle transitions to a remote runtime.
+  // The Platform Manager remains engine-agnostic: adapters are resolved from
+  // the generic runtime registry and failures prevent local activation.
+  const lifecycleAdapter = resolveRuntimeLifecycleAdapter(engineId);
+  if (lifecycleAdapter?.beforeTransition) {
+    try {
+      await lifecycleAdapter.beforeTransition(db, userId, from, to);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      await db.from("audit_log").insert({
+        user_id: userId,
+        action: "lifecycle.remote_rejected",
+        resource: engineId,
+        detail: { from, to, error: detail } as never,
+      });
+      throw new LifecycleError(
+        `Remote lifecycle transition failed for engine "${engineId}": ${detail}`,
+      );
+    }
   }
 
   const health = deriveHealth({

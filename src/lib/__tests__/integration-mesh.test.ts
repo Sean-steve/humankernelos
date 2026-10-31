@@ -58,7 +58,7 @@ describe("Integration Mesh runtime registry", () => {
 
 describe("Platform API probes", () => {
   it("returns a versioned health envelope", async () => {
-    const response = handlePlatformProbe(
+    const response = await handlePlatformProbe(
       new Request("https://hos.example/api/v1/health"),
     );
     expect(response).not.toBeNull();
@@ -77,9 +77,9 @@ describe("Platform API probes", () => {
     expect(body.meta.request_id).toBeTruthy();
   });
 
-  it("does not intercept unrelated application routes", () => {
-    expect(
+  it("does not intercept unrelated application routes", async () => {
+    await expect(
       handlePlatformProbe(new Request("https://hos.example/")),
-    ).toBeNull();
+    ).resolves.toBeNull();
   });
 });

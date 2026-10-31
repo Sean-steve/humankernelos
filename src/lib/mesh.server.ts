@@ -58,7 +58,7 @@ export async function runAndPersistOrchestrator(db: Db, userId: string) {
     db
       .from("engine_signals")
       .select(
-        "engine, signal_key, value_num, value_text, confidence, reliability, trend, occurred_at",
+        "engine, signal_key, value_num, value_text, confidence, reliability, trend, metadata, occurred_at",
       )
       .eq("user_id", userId)
       .order("occurred_at", { ascending: false })

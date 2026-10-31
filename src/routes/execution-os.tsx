@@ -36,7 +36,6 @@ export const Route = createFileRoute("/execution-os")({
   component: ExecutionOsPage,
 });
 
-type Status = Awaited<ReturnType<ReturnType<typeof useServerFn<typeof getExecutionOsIntegrationStatus>>>>;
 
 function ExecutionOsPage() {
   const { session } = useSession();

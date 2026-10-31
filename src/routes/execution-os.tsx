@@ -376,9 +376,9 @@ function ExecutionOsPage() {
   );
 }
 
-function asObject(value: unknown): Record<string, any> | null {
+function asObject(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, any>)
+    ? (value as Record<string, unknown>)
     : null;
 }
 
@@ -445,7 +445,7 @@ function Boundary({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function Evidence({ evidence }: { evidence: Record<string, any> | null }) {
+function Evidence({ evidence }: { evidence: Record<string, unknown> | null }) {
   if (!evidence) return null;
   const rows = Object.entries(evidence).slice(0, 5);
   if (!rows.length) return null;

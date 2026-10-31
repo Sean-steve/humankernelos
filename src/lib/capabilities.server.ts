@@ -365,7 +365,9 @@ export async function invokeCapability(db: Db, userId: string, input: InvokeInpu
   }
 
   try {
-    const raw = await runtime.run(db, userId, parsed.data);
+    const raw = await runtime.run(db, userId, parsed.data, {
+      correlationId: input.correlation_id,
+    });
     const out = runtime.output.parse(raw);
     await record(
       db,

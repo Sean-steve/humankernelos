@@ -1,0 +1,44 @@
+name: Phase 6 Dependency Remediation
+
+on:
+  push:
+    branches:
+      - phase-6-production-certification
+
+permissions:
+  contents: write
+
+jobs:
+  remediate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: phase-6-production-certification
+
+      - name: Use Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Apply available security fixes
+        run: bun audit fix --latest || true
+
+      - name: Commit dependency remediation
+        run: |
+          if git diff --quiet -- package.json bun.lock; then
+            echo "No dependency changes were required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json bun.lock
+          git commit -m "security: remediate production dependency advisories"
+          git push origin HEAD:phase-6-production-certification
+
+      - name: Report remaining high/critical advisories
+        run: bun audit --prod --audit-level=high

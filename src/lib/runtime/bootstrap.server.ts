@@ -4,5 +4,6 @@
 // persisted installation/permissions remain authoritative.
 
 import "../external-engines/execution-os.server";
+import "../external-engines/execution-os-ingress.server";
 
 export const runtimeAdaptersBootstrapped = true;

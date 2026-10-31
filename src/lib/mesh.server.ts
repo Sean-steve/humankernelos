@@ -109,7 +109,23 @@ export async function runAndPersistOrchestrator(db: Db, userId: string) {
 
   // The Orchestrator and HSIE share one fused truth. Every successful fusion
   // materializes the canonical HSV and its evidence trail.
-  await materializeHumanState(db, userId, fused);
+  const hsv = await materializeHumanState(db, userId, fused);
+
+  // Human State remains Kernel-owned. External engines receive only their
+  // adapter-defined minimum-necessary projection through Event Mesh delivery.
+  if (await engineIsActive(db, userId, "hsie")) {
+    await publishAndDispatch(db, userId, {
+      type: "HumanStateUpdated",
+      source_engine: "hsie",
+      payload: {
+        as_of: hsv.as_of,
+        coverage: hsv.coverage,
+        confidence: hsv.confidence,
+        source_count: hsv.source_count,
+      },
+      idempotency_key: `human-state:${run.id}`,
+    });
+  }
 
   return {
     run_id: run.id as string,

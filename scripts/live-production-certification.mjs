@@ -127,8 +127,11 @@ const checks = await Promise.all([
         data.checks?.productionConfig === true &&
         data.checks?.identityMode === true &&
         data.checks?.eventMeshTransport === true &&
-        data.checks?.runtimeStorageIsolation === true,
-      detail: `status=${String(data.status)} config=${String(data.checks?.productionConfig)} identity=${String(data.checks?.identityMode)} eventMesh=${String(data.checks?.eventMeshTransport)} storageIsolation=${String(data.checks?.runtimeStorageIsolation)}`,
+        data.checks?.runtimeStorageIsolation === true &&
+        data.checks?.durableStorageRoot === true &&
+        data.checks?.backupEvidence === true &&
+        data.checks?.restoreEvidence === true,
+      detail: `status=${String(data.status)} config=${String(data.checks?.productionConfig)} identity=${String(data.checks?.identityMode)} eventMesh=${String(data.checks?.eventMeshTransport)} storageIsolation=${String(data.checks?.runtimeStorageIsolation)} durableStorage=${String(data.checks?.durableStorageRoot)} backupEvidence=${String(data.checks?.backupEvidence)} restoreEvidence=${String(data.checks?.restoreEvidence)}`,
     };
   }),
 ]);

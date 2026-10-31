@@ -481,6 +481,7 @@ async function ingestExecutionScheduleProposal(
   const status = String(payload.status || "PROPOSED");
   if (status !== "PROPOSED") return;
 
+  const externalProposalId = String(payload.id || event.id);
   const today = new Date().toISOString().slice(0, 10);
   const { data: plan } = await db
     .from("daily_plans")
@@ -493,66 +494,56 @@ async function ingestExecutionScheduleProposal(
   const allocations = Array.isArray(payload.allocations)
     ? (payload.allocations as Array<Record<string, unknown>>)
     : [];
+  const first = allocations[0];
 
-  const proposals =
-    allocations.length > 0
-      ? allocations.map((allocation) => ({
-          user_id: userId,
-          plan_date: planDate,
-          source_engine: EXECUTION_OS_ENGINE_ID,
-          source_id: `${String(payload.id || event.id)}:${String(allocation.activityId || allocation.instanceId || "activity")}`,
-          title: String(allocation.title || allocation.activityId || "Execution schedule adjustment"),
-          description: String(payload.reason || allocation.reasonForAdjustment || "Execution OS requested a schedule adjustment."),
-          requested_start:
-            typeof allocation.allocatedStartMinutes === "number"
-              ? timestampForMinutes(planDate, allocation.allocatedStartMinutes, timeZone)
-              : null,
-          requested_end:
-            typeof allocation.allocatedEndMinutes === "number"
-              ? timestampForMinutes(planDate, allocation.allocatedEndMinutes, timeZone)
-              : null,
-          flexibility: "flexible",
-          priority: Number(allocation.priority ?? 100),
-          protected: Boolean(allocation.isProtected),
-          status: "pending",
-          resolution: {
-            external_proposal_id: String(payload.id || event.id),
-            external_plan_id: payload.planId ?? null,
-            external_plan_version: payload.planVersion ?? null,
-          } as never,
-        }))
-      : [
-          {
-            user_id: userId,
-            plan_date: planDate,
-            source_engine: EXECUTION_OS_ENGINE_ID,
-            source_id: String(payload.id || event.id),
-            title: "Execution schedule adjustment",
-            description: String(payload.reason || "Execution OS requested a schedule adjustment."),
-            requested_start: null,
-            requested_end: null,
-            flexibility: "flexible",
-            priority: 100,
-            protected: false,
-            status: "pending",
-            resolution: { external_proposal_id: String(payload.id || event.id) } as never,
-          },
-        ];
+  const sourceId = externalProposalId;
+  const { data: existing, error: existingError } = await db
+    .from("daily_plan_proposals")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("source_engine", EXECUTION_OS_ENGINE_ID)
+    .eq("source_id", sourceId)
+    .maybeSingle();
+  if (existingError) throw new Error(existingError.message);
+  if (existing) return;
 
-  for (const proposal of proposals) {
-    const { data: existing } = await db
-      .from("daily_plan_proposals")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("source_engine", EXECUTION_OS_ENGINE_ID)
-      .eq("source_id", proposal.source_id)
-      .maybeSingle();
-    if (existing) continue;
-    const { error } = await db.from("daily_plan_proposals").insert(proposal);
-    if (error) throw new Error(error.message);
-  }
+  const title =
+    allocations.length > 1
+      ? `Execution schedule adjustment (${allocations.length} blocks)`
+      : String(first?.title || first?.activityId || "Execution schedule adjustment");
+
+  const { error } = await db.from("daily_plan_proposals").insert({
+    user_id: userId,
+    plan_date: planDate,
+    source_engine: EXECUTION_OS_ENGINE_ID,
+    source_id: sourceId,
+    title,
+    description: String(
+      payload.reason ||
+        first?.reasonForAdjustment ||
+        "Execution OS requested a schedule adjustment.",
+    ),
+    requested_start:
+      typeof first?.allocatedStartMinutes === "number"
+        ? timestampForMinutes(planDate, first.allocatedStartMinutes, timeZone)
+        : null,
+    requested_end:
+      typeof first?.allocatedEndMinutes === "number"
+        ? timestampForMinutes(planDate, first.allocatedEndMinutes, timeZone)
+        : null,
+    flexibility: "flexible",
+    priority: Number(first?.priority ?? 100),
+    protected: allocations.some((allocation) => Boolean(allocation.isProtected)),
+    status: "pending",
+    resolution: {
+      external_proposal_id: externalProposalId,
+      external_plan_id: payload.planId ?? null,
+      external_plan_version: payload.planVersion ?? null,
+      external_allocations: allocations,
+    } as never,
+  });
+  if (error) throw new Error(error.message);
 }
-
 
 for (const [capability, scope] of Object.entries(capabilityScopes) as Array<
   [keyof typeof capabilityScopes, (typeof capabilityScopes)[keyof typeof capabilityScopes]]

@@ -49,7 +49,9 @@ function EnginesPage() {
   const installed = (query.data?.engines ?? []) as InstalledEngine[];
   const byId = new Map(installed.map((engine) => [engine.engine_id, engine]));
   const domainEngines = REGISTERED_ENGINES.filter(
-    (engine) => !engine.owner.includes("HOS Kernel"),
+    (engine) =>
+      !engine.owner.includes("HOS Kernel") &&
+      engine.status !== "deprecated",
   );
 
   return (

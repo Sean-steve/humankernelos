@@ -101,6 +101,7 @@ export const EXECUTION_OS_DESCRIPTOR: EngineDescriptor = {
     "DailyPlanChanged",
     "HumanStateUpdated",
     "RecommendationDecided",
+    "ScheduleProposalResolved",
   ],
   publishedSignals: [
     "execution.outcome_score",
@@ -617,6 +618,87 @@ registerRuntimeEventHandler("HumanStateUpdated", {
   scope: "execution.context.write",
   run: async (db, userId, event) => {
     await sendHumanStateToExecutionOs(db, userId, event.id);
+  },
+});
+
+registerRuntimeEventHandler("ScheduleProposalResolved", {
+  engine_id: EXECUTION_OS_ENGINE_ID,
+  handler: "resolve_execution_schedule_proposal",
+  scope: "execution.schedule.write",
+  run: async (db, userId, event) => {
+    const externalProposalId = String(event.payload.external_proposal_id || "");
+    const decision = String(event.payload.decision || "");
+    if (!externalProposalId || !["ACCEPT", "REJECT"].includes(decision)) return;
+    await callExecutionOs(db, userId, {
+      path: "/api/v1/hos/signals",
+      body: {
+        type: "hos.schedule_proposal.resolved",
+        data: { proposalId: externalProposalId, decision },
+      },
+      permissions: ["execution.schedule.write"],
+      consentScopes: ["execution.schedule"],
+      idempotencyKey: `schedule-resolution-${event.id}`,
+      correlationId: event.id,
+    });
+  },
+});
+
+registerRuntimeEventHandler("RecommendationDecided", {
+  engine_id: EXECUTION_OS_ENGINE_ID,
+  handler: "accept_pdie_execution_advisory",
+  scope: "execution.adaptation.recommend",
+  run: async (db, userId, event) => {
+    const adaptation =
+      event.payload.execution_adaptation &&
+      typeof event.payload.execution_adaptation === "object"
+        ? (event.payload.execution_adaptation as Record<string, unknown>)
+        : null;
+    if (!adaptation) return;
+    const type = String(adaptation.type || "");
+    const allowed = new Set([
+      "PREFER_SHORTER_BLOCKS",
+      "PREFER_RECOVERY",
+      "REDUCE_CONTEXT_SWITCHING",
+      "PREFER_LOWER_COGNITIVE_LOAD",
+      "PREFER_LOWER_PHYSICAL_LOAD",
+    ]);
+    if (!allowed.has(type)) return;
+
+    await callExecutionOs(db, userId, {
+      path: "/api/v1/hos/signals",
+      body: {
+        type: "hos.pdie.recommendation.created",
+        data: {
+          recommendation: {
+            id: String(event.payload.recommendation_id),
+            subjectId: userId,
+            source: "PDIE",
+            recommendationVersion: "1.0",
+            type,
+            confidence: Number(event.payload.confidence ?? 0),
+            rationale: String(event.payload.rationale || ""),
+            evidenceRefs: Array.isArray(event.payload.evidence_refs)
+              ? event.payload.evidence_refs.map(String)
+              : [],
+            issuedAtUtc: new Date().toISOString(),
+            expiresAtUtc: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+            parameters: {
+              ...(typeof adaptation.max_block_minutes === "number"
+                ? { maxBlockMinutes: adaptation.max_block_minutes }
+                : {}),
+              ...(typeof adaptation.strength === "number"
+                ? { strength: adaptation.strength }
+                : {}),
+            },
+            status: "RECEIVED",
+          },
+        },
+      },
+      permissions: ["execution.adaptation.recommend"],
+      consentScopes: ["execution.adaptation"],
+      idempotencyKey: `pdie-${event.id}`,
+      correlationId: event.id,
+    });
   },
 });
 

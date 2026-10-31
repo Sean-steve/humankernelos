@@ -55,6 +55,20 @@ async function emitScheduleProposalResolved(
   });
 }
 
+async function planDateForId(
+  context: { supabase: Parameters<typeof publishAndDispatch>[0]; userId: string },
+  planId: string,
+) {
+  const { data, error } = await context.supabase
+    .from("daily_plans")
+    .select("plan_date")
+    .eq("user_id", context.userId)
+    .eq("id", planId)
+    .single();
+  if (error) throw new Error(error.message);
+  return data.plan_date;
+}
+
 const DateInput = z.object({
   plan_date: z.string().date().optional(),
 });

@@ -298,17 +298,41 @@ export const decideDailyPlanProposal = createServerFn({ method: "POST" })
       throw new Error("This proposal has already been decided.");
     }
 
+    const priorResolution =
+      proposal.resolution && typeof proposal.resolution === "object"
+        ? (proposal.resolution as Record<string, unknown>)
+        : {};
+    const externalProposalId =
+      typeof priorResolution.external_proposal_id === "string"
+        ? priorResolution.external_proposal_id
+        : null;
+
     if (data.decision === "rejected" || data.decision === "deferred") {
       const { error } = await context.supabase
         .from("daily_plan_proposals")
         .update({
           status: data.decision,
           decided_at: new Date().toISOString(),
-          resolution: { note: data.note ?? null } as never,
+          resolution: {
+            ...priorResolution,
+            note: data.note ?? null,
+          } as never,
         })
         .eq("id", proposal.id)
         .eq("user_id", context.userId);
       if (error) throw new Error(error.message);
+      if (
+        data.decision === "rejected" &&
+        externalProposalId &&
+        proposal.source_engine === "execution-os"
+      ) {
+        await emitScheduleProposalResolved(context, {
+          proposalId: proposal.id,
+          sourceEngine: proposal.source_engine,
+          externalProposalId,
+          decision: "REJECT",
+        });
+      }
       return { decision: data.decision, item: null };
     }
 
@@ -363,6 +387,7 @@ export const decideDailyPlanProposal = createServerFn({ method: "POST" })
         accepted_item_id: item.id,
         decided_at: new Date().toISOString(),
         resolution: {
+          ...priorResolution,
           start_at: startAt,
           end_at: endAt,
           note: data.note ?? null,
@@ -371,6 +396,21 @@ export const decideDailyPlanProposal = createServerFn({ method: "POST" })
       .eq("id", proposal.id)
       .eq("user_id", context.userId);
     if (updateError) throw new Error(updateError.message);
+
+    if (externalProposalId && proposal.source_engine === "execution-os") {
+      await emitScheduleProposalResolved(context, {
+        proposalId: proposal.id,
+        sourceEngine: proposal.source_engine,
+        externalProposalId,
+        decision: "ACCEPT",
+      });
+    }
+    await emitDailyPlanChanged(
+      context,
+      plan.id,
+      proposal.plan_date,
+      `schedule_proposal_${data.decision}`,
+    );
 
     return { decision: data.decision, item };
   });

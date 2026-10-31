@@ -11,7 +11,12 @@ export type RuntimeCapability = {
   input: ZodTypeAny;
   output: ZodTypeAny;
   status: "available" | "deprecated";
-  run: (db: Db, userId: string, input: unknown) => Promise<unknown>;
+  run: (
+    db: Db,
+    userId: string,
+    input: unknown,
+    context?: { correlationId?: string },
+  ) => Promise<unknown>;
 };
 
 export type RuntimeEventHandler = {

@@ -155,15 +155,27 @@ export async function transition(
       await lifecycleAdapter.beforeTransition(db, userId, from, to);
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
+      const deactivating =
+        to === "SUSPENDED" ||
+        to === "DISABLED" ||
+        to === "UNINSTALLED";
       await db.from("audit_log").insert({
         user_id: userId,
-        action: "lifecycle.remote_rejected",
+        action: deactivating
+          ? "lifecycle.remote_pause_failed_local_fail_closed"
+          : "lifecycle.remote_rejected",
         resource: engineId,
         detail: { from, to, error: detail } as never,
       });
-      throw new LifecycleError(
-        `Remote lifecycle transition failed for engine "${engineId}": ${detail}`,
-      );
+
+      // Local authority must always be able to stop an external engine bridge.
+      // If remote PAUSE fails (including after consent revocation), continue the
+      // local deactivation so capabilities/events are immediately fail-closed.
+      if (!deactivating) {
+        throw new LifecycleError(
+          `Remote lifecycle transition failed for engine "${engineId}": ${detail}`,
+        );
+      }
     }
   }
 

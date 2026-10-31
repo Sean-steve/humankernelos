@@ -16,7 +16,10 @@ import {
 } from "./learning.server";
 import { refreshLearningMemory } from "./learning-memory.server";
 
-const EffectSchema = z.record(z.enum(AXES), z.number().min(-100).max(100));
+const EffectSchema = z.partialRecord(
+  z.enum(AXES),
+  z.number().min(-100).max(100),
+);
 
 export const recordOutcome = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

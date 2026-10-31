@@ -174,5 +174,5 @@ export async function remoteHosRequest(options: RemoteHosRequestOptions) {
     throw new Error(`Remote engine "${engineId}" rejected ${path}: ${message}`);
   }
 
-  return payload as any;
+  return payload;
 }

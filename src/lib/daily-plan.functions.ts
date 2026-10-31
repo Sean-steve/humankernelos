@@ -173,6 +173,12 @@ export const upsertDailyPlanItem = createServerFn({ method: "POST" })
         .select()
         .single();
       if (error) throw new Error(error.message);
+      await emitDailyPlanChanged(
+        context,
+        plan.id,
+        planDate,
+        "plan_item_updated",
+      );
       return { item };
     }
 
@@ -182,6 +188,12 @@ export const upsertDailyPlanItem = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
+    await emitDailyPlanChanged(
+      context,
+      plan.id,
+      planDate,
+      "plan_item_created",
+    );
     return { item };
   });
 

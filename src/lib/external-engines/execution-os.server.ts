@@ -435,19 +435,49 @@ function executionBehaviorProjection(payload: Record<string, unknown>) {
         : eventType === "ActivityPartiallyCompleted"
           ? 60
           : 0;
-    return { key: "execution.outcome_score", value, confidence: 0.9, reliability: 0.85 };
+    return {
+      key: "execution.outcome_score",
+      axis: "behavioral",
+      value,
+      confidence: 0.9,
+      reliability: 0.85,
+    };
   }
   if (signalType === "RECOVERY_BEHAVIOR") {
-    return { key: "execution.recovery_score", value: 80, confidence: 0.75, reliability: 0.75 };
+    return {
+      key: "execution.recovery_score",
+      axis: "behavioral",
+      value: 80,
+      confidence: 0.75,
+      reliability: 0.75,
+    };
   }
   if (signalType === "SCHEDULE_PRESSURE") {
-    return { key: "execution.schedule_reliability", value: 40, confidence: 0.7, reliability: 0.75 };
+    return {
+      key: "execution.schedule_reliability",
+      axis: "operational",
+      value: 40,
+      confidence: 0.7,
+      reliability: 0.75,
+    };
   }
   if (signalType === "EXECUTION_DEVIATION") {
-    return { key: "execution.schedule_reliability", value: 35, confidence: 0.75, reliability: 0.8 };
+    return {
+      key: "execution.schedule_reliability",
+      axis: "operational",
+      value: 35,
+      confidence: 0.75,
+      reliability: 0.8,
+    };
   }
   if (signalType === "PERFORMANCE_OUTCOME") {
-    return { key: "execution.outcome_score", value: 85, confidence: 0.7, reliability: 0.75 };
+    return {
+      key: "execution.outcome_score",
+      axis: "behavioral",
+      value: 85,
+      confidence: 0.7,
+      reliability: 0.75,
+    };
   }
   return null;
 }
@@ -742,6 +772,9 @@ registerRuntimeEventHandler("execution.behavior.signal", {
       reliability: projection.reliability,
       trend: "unknown",
       metadata: {
+        hos_axis: projection.axis,
+        normalized_value: projection.value,
+        base_reliability: projection.reliability,
         external_event_id: event.id,
         evidence: event.payload.evidence ?? null,
         provenance: event.payload.provenance ?? null,

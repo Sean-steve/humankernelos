@@ -45,6 +45,9 @@ jobs:
       - name: Production certification tests
         run: bun run test:production
 
+      - name: Live certifier source check
+        run: node --check scripts/live-production-certification.mjs
+
       - name: Unit tests
         run: bun run test
 

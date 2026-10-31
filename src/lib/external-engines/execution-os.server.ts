@@ -680,6 +680,7 @@ registerRuntimeEventHandler("ScheduleProposalResolved", {
   handler: "resolve_execution_schedule_proposal",
   scope: "execution.schedule.write",
   run: async (db, userId, event) => {
+    if (event.payload.source_engine !== EXECUTION_OS_ENGINE_ID) return;
     const externalProposalId = String(event.payload.external_proposal_id || "");
     const decision = String(event.payload.decision || "");
     if (!externalProposalId || !["ACCEPT", "REJECT"].includes(decision)) return;

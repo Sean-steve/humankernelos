@@ -6,7 +6,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { assertScope } from "./permissions.server";
+import { assertScope, engineIsActive } from "./permissions.server";
+import { publishAndDispatch } from "./mesh.server";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { outcomeHistoryPrompt, type OutcomeRow, type RecRow } from "./learning.server";
 import {
@@ -32,6 +33,20 @@ const RecommendationSchema = z.object({
   cost_axes: z.array(z.string()),
   trades_off: z.boolean(),
   sustainability_note: z.string(),
+  execution_adaptation: z
+    .object({
+      type: z.enum([
+        "PREFER_SHORTER_BLOCKS",
+        "PREFER_RECOVERY",
+        "REDUCE_CONTEXT_SWITCHING",
+        "PREFER_LOWER_COGNITIVE_LOAD",
+        "PREFER_LOWER_PHYSICAL_LOAD",
+      ]),
+      max_block_minutes: z.number().int().min(10).max(240).optional(),
+      strength: z.number().min(0).max(1).optional(),
+    })
+    .nullable()
+    .default(null),
 });
 
 const SYSTEM = `You are the Personal Decision Intelligence Engine inside the Human Operating System.
@@ -54,6 +69,7 @@ Rules:
 - cost_axes: any of physical, cognitive, emotional, behavioral, lifestyle, operational that this may cost. Empty array if none.
 - trades_off: true when the recommendation gains one axis at the measurable expense of another.
 - sustainability_note: one sentence on the long-term effect. Never sacrifice long-term performance for a short-term win.
+- execution_adaptation: null unless the recommendation genuinely benefits from a bounded execution advisory. When used, choose only one of PREFER_SHORTER_BLOCKS, PREFER_RECOVERY, REDUCE_CONTEXT_SWITCHING, PREFER_LOWER_COGNITIVE_LOAD, PREFER_LOWER_PHYSICAL_LOAD. This is advisory only and may never mutate Human State, Personal Policy, or the HOS Daily Plan.
 - Apply the learned history: prefer directive shapes this operator has actually executed and that measurably helped.
 - Address the Orchestrator's rank-1 priority unless an active personal policy forbids it; if you deviate, say why in the body.
 - Do not re-derive state from raw signals: the fused axes are already weighted by confidence, reliability and recency.
@@ -305,6 +321,7 @@ export const generateRecommendation = createServerFn({ method: "POST" })
           cost_axes: [],
           trades_off: false,
           sustainability_note: "Neutral — a short reset costs nothing long term.",
+          execution_adaptation: null,
         };
 
       } else {
@@ -345,6 +362,7 @@ export const generateRecommendation = createServerFn({ method: "POST" })
           cost_axes: parsed.cost_axes,
           trades_off: parsed.trades_off,
           note: parsed.sustainability_note,
+          execution_adaptation: parsed.execution_adaptation,
         } as never,
         priority,
         state_alignment: composite ?? null,
@@ -387,7 +405,7 @@ export const decideRecommendation = createServerFn({ method: "POST" })
     const { data: recommendation, error: readError } = await context.supabase
       .from("recommendations")
       .select(
-        "id, type, title, body, evidence, assumptions, alternatives, risks, confidence, state_alignment, priority, urgency",
+        "id, type, title, body, evidence, assumptions, alternatives, risks, confidence, state_alignment, priority, urgency, sustainability",
       )
       .eq("id", data.id)
       .eq("user_id", context.userId)
@@ -432,6 +450,30 @@ export const decideRecommendation = createServerFn({ method: "POST" })
         decided_at: decidedAt,
       });
     if (memoryError) throw new Error(memoryError.message);
+
+    if (
+      (data.status === "accepted" || data.status === "modified") &&
+      (recommendation.sustainability as Record<string, unknown> | null)?.execution_adaptation &&
+      (await engineIsActive(context.supabase, context.userId, "pdie"))
+    ) {
+      const sustainability =
+        (recommendation.sustainability as Record<string, unknown> | null) ?? {};
+      await publishAndDispatch(context.supabase, context.userId, {
+        type: "RecommendationDecided",
+        source_engine: "pdie",
+        payload: {
+          recommendation_id: recommendation.id,
+          decision_status: data.status,
+          confidence: recommendation.confidence,
+          rationale: chosenAction,
+          evidence_refs: Array.isArray(recommendation.evidence)
+            ? recommendation.evidence.map(String)
+            : [],
+          execution_adaptation: sustainability.execution_adaptation,
+        },
+        idempotency_key: `recommendation-decided:${recommendation.id}:${data.status}`,
+      });
+    }
 
     return { ok: true };
   });

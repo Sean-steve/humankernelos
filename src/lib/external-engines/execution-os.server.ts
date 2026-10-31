@@ -103,11 +103,7 @@ export const EXECUTION_OS_DESCRIPTOR: EngineDescriptor = {
     "RecommendationDecided",
     "ScheduleProposalResolved",
   ],
-  publishedSignals: [
-    "execution.outcome_score",
-    "execution.recovery_score",
-    "execution.schedule_reliability",
-  ],
+  publishedSignals: ["execution.latest_outcome"],
   requiredSignals: ["kernel.human_state", "kernel.daily_plan"],
   dependencies: [],
   permissions: {
@@ -436,58 +432,31 @@ function executionBehaviorProjection(payload: Record<string, unknown>) {
       : {};
   const eventType = String(evidence.eventType || "");
 
-  if (signalType === "EXECUTION_OUTCOME") {
-    const value =
-      eventType === "ActivityCompleted"
-        ? 100
-        : eventType === "ActivityPartiallyCompleted"
-          ? 60
-          : 0;
-    return {
-      key: "execution.outcome_score",
-      axis: "behavioral",
-      value,
-      confidence: 0.9,
-      reliability: 0.85,
-    };
-  }
-  if (signalType === "RECOVERY_BEHAVIOR") {
-    return {
-      key: "execution.recovery_score",
-      axis: "behavioral",
-      value: 80,
-      confidence: 0.75,
-      reliability: 0.75,
-    };
-  }
-  if (signalType === "SCHEDULE_PRESSURE") {
-    return {
-      key: "execution.schedule_reliability",
-      axis: "operational",
-      value: 40,
-      confidence: 0.7,
-      reliability: 0.75,
-    };
-  }
-  if (signalType === "EXECUTION_DEVIATION") {
-    return {
-      key: "execution.schedule_reliability",
-      axis: "operational",
-      value: 35,
-      confidence: 0.75,
-      reliability: 0.8,
-    };
-  }
-  if (signalType === "PERFORMANCE_OUTCOME") {
-    return {
-      key: "execution.outcome_score",
-      axis: "behavioral",
-      value: 85,
-      confidence: 0.7,
-      reliability: 0.75,
-    };
-  }
-  return null;
+  // Only direct execution outcomes carry a defensible ordinal value.
+  // Fallback, schedule pressure, deviation, override and performance events
+  // remain auditable facts until the external engine provides a measured
+  // metric rather than HOS inventing one.
+  if (signalType !== "EXECUTION_OUTCOME") return null;
+
+  const outcome =
+    eventType === "ActivityCompleted"
+      ? 100
+      : eventType === "ActivityPartiallyCompleted"
+        ? 50
+        : eventType === "ActivityMissed"
+          ? 0
+          : null;
+  if (outcome === null) return null;
+
+  return {
+    key: "execution.latest_outcome",
+    axis: "behavioral",
+    value: outcome,
+    confidence: 1,
+    // A single direct outcome is certain as a fact but only moderately
+    // representative of broader behavioral state.
+    reliability: 0.5,
+  };
 }
 
 function timestampForMinutes(date: string, minutes: number, timeZone: string) {

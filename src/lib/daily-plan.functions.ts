@@ -206,12 +206,21 @@ export const setDailyPlanStatus = createServerFn({ method: "POST" })
     }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
+    const { data: item, error } = await context.supabase
       .from("daily_plan_items")
       .update({ status: data.status })
       .eq("id", data.id)
-      .eq("user_id", context.userId);
+      .eq("user_id", context.userId)
+      .select("plan_id")
+      .single();
     if (error) throw new Error(error.message);
+    const planDate = await planDateForId(context, item.plan_id);
+    await emitDailyPlanChanged(
+      context,
+      item.plan_id,
+      planDate,
+      `plan_item_status_${data.status}`,
+    );
     return { ok: true };
   });
 

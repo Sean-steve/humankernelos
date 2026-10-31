@@ -13,6 +13,7 @@ import {
 } from "../platform-manager.server";
 import { capabilitySeeds, invokeCapability } from "../capabilities.server";
 import { publishAndDispatch, subscriptionSeeds } from "../mesh.server";
+import { toSerializableJson } from "../serializable";
 import {
   EXECUTION_OS_CONTRACT_VERSION,
   EXECUTION_OS_DESCRIPTOR,
@@ -538,8 +539,8 @@ export const getExecutionOsOverview = createServerFn({ method: "GET" })
       }),
     ]);
     return {
-      schedule: schedule.output,
-      discipline: discipline.output,
+      schedule: toSerializableJson(schedule.output),
+      discipline: toSerializableJson(discipline.output),
     };
   });
 
@@ -565,5 +566,5 @@ export const invokeExecutionOsAction = createServerFn({ method: "POST" })
       input: data.input,
       correlation_id: crypto.randomUUID(),
     });
-    return { ok: true, result: result.output };
+    return { ok: true, result: toSerializableJson(result.output) };
   });

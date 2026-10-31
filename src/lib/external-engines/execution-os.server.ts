@@ -58,14 +58,11 @@ export const EXECUTION_OS_REQUESTED_SCOPES = [
   "execution.lifecycle.manage",
   "execution.context.write",
   "execution.adaptation.recommend",
-  "execution.events.read",
-  "execution.events.manage",
   "execution.schedule",
   "execution.performance",
   "execution.adaptation",
   "execution.analytics",
   "execution.control",
-  "execution.audit",
   "execution.human_state",
 ] as const;
 

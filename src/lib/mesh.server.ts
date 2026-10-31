@@ -362,6 +362,7 @@ export type PublishInput = {
   correlation_id?: string;
   idempotency_key?: string;
   schema_version?: number;
+  occurred_at?: string;
 };
 
 async function validateRegisteredEvent(
@@ -438,6 +439,7 @@ export async function publishAndDispatch(
     schema_version,
     ...(input.correlation_id ? { correlation_id: input.correlation_id } : {}),
     ...(input.idempotency_key ? { idempotency_key: input.idempotency_key } : {}),
+    ...(input.occurred_at ? { occurred_at: input.occurred_at } : {}),
   };
 
   const { data, error } = await db

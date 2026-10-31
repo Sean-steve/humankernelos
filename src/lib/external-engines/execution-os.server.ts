@@ -481,7 +481,9 @@ async function ingestExecutionScheduleProposal(
   const status = String(payload.status || "PROPOSED");
   if (status !== "PROPOSED") return;
 
-  const externalProposalId = String(payload.id || event.id);
+  const externalProposalId = String(
+    payload.id || event.payload.subject || event.id,
+  );
   const today = new Date().toISOString().slice(0, 10);
   const { data: plan } = await db
     .from("daily_plans")
@@ -491,9 +493,25 @@ async function ingestExecutionScheduleProposal(
     .maybeSingle();
   const planDate = plan?.plan_date ?? today;
   const timeZone = await executionOsTimezone(db, userId);
-  const allocations = Array.isArray(payload.allocations)
+  let allocations = Array.isArray(payload.allocations)
     ? (payload.allocations as Array<Record<string, unknown>>)
     : [];
+  if (
+    allocations.length === 0 &&
+    typeof payload.startMinutes === "number" &&
+    typeof payload.endMinutes === "number"
+  ) {
+    allocations = [
+      {
+        activityId: payload.taskId ?? "execution-activity",
+        title: payload.taskId ?? "Execution activity",
+        allocatedStartMinutes: payload.startMinutes,
+        allocatedEndMinutes: payload.endMinutes,
+        reasonForAdjustment: payload.reason,
+        priority: 100,
+      },
+    ];
+  }
   const first = allocations[0];
 
   const sourceId = externalProposalId;

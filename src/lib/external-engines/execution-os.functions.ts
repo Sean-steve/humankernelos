@@ -63,13 +63,23 @@ async function ensureEngineRow(
   };
 
   if (existing) {
+    const reinstall = existing.lifecycle_state === "UNINSTALLED";
     const { error } = await db
       .from("engines")
-      .update(metadata)
+      .update({
+        ...metadata,
+        ...(reinstall
+          ? {
+              status: "inactive",
+              lifecycle_state: "REGISTERED",
+              health: "disabled",
+            }
+          : {}),
+      })
       .eq("user_id", userId)
       .eq("engine_id", descriptor.id);
     if (error) throw new Error(error.message);
-    return existing.lifecycle_state as string;
+    return reinstall ? "REGISTERED" : (existing.lifecycle_state as string);
   }
 
   const { error } = await db.from("engines").insert({

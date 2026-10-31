@@ -149,6 +149,23 @@ function normalizedBaseUrl(value: string) {
   return value.replace(/\/+$/, "");
 }
 
+type RemoteManifest = {
+  engineId?: string;
+  engineVersion?: string;
+  contractVersion?: string;
+  identityAuthority?: string;
+  scheduleAuthority?: string;
+  capabilities?: Array<string | { name?: string }>;
+};
+
+type RemoteReadiness = {
+  status?: string;
+};
+
+type ApiEnvelope<T> = {
+  data?: T;
+};
+
 async function publicExecutionOsProbe(baseUrl: string) {
   const [manifestRes, readinessRes] = await Promise.all([
     fetch(`${baseUrl}/api/v1/hos/manifest`),
@@ -158,15 +175,30 @@ async function publicExecutionOsProbe(baseUrl: string) {
     throw new Error(`Execution OS manifest probe failed with HTTP ${manifestRes.status}.`);
   }
 
-  const manifestPayload = (await manifestRes.json()) as any;
-  const readinessPayload = (await readinessRes.json().catch(() => null)) as any;
-  const manifest = manifestPayload?.data ?? manifestPayload;
-  const readiness = readinessPayload?.data ?? readinessPayload;
+  const manifestPayload = (await manifestRes.json()) as
+    | ApiEnvelope<RemoteManifest>
+    | RemoteManifest;
+  const readinessPayload = (await readinessRes.json().catch(() => null)) as
+    | ApiEnvelope<RemoteReadiness>
+    | RemoteReadiness
+    | null;
+  const manifest =
+    "data" in manifestPayload && manifestPayload.data
+      ? manifestPayload.data
+      : manifestPayload;
+  const readiness =
+    readinessPayload &&
+    "data" in readinessPayload &&
+    readinessPayload.data
+      ? readinessPayload.data
+      : readinessPayload;
 
   const required = new Set(EXECUTION_OS_DESCRIPTOR.capabilities);
   const remoteCapabilities = new Set(
     Array.isArray(manifest?.capabilities)
-      ? manifest.capabilities.map((item: any) => String(item?.name ?? item))
+      ? manifest.capabilities.map((item) =>
+          typeof item === "string" ? item : String(item.name ?? ""),
+        )
       : [],
   );
   const missing = [...required].filter((capability) => !remoteCapabilities.has(capability));

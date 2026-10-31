@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { toSerializableJson } from "./serializable";
 
 const InvokeInput = z.object({
   consumer_engine_id: z.string().min(1).max(64),
@@ -70,5 +71,11 @@ export const invoke = createServerFn({ method: "POST" })
       input: data.input ?? {},
       ...(data.correlation_id ? { correlation_id: data.correlation_id } : {}),
     });
-    return { ok: true, ...result };
+    return {
+      ok: true,
+      capability: result.capability,
+      provider_engine_id: result.provider_engine_id,
+      version: result.version,
+      output: toSerializableJson(result.output),
+    };
   });

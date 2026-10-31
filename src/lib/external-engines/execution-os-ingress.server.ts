@@ -1,8 +1,14 @@
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import type { Database } from "@/integrations/supabase/types";
 import { publishAndDispatch } from "../mesh.server";
+import { createProductionServiceDb } from "../production.server";
 import { registerExternalEngineIngress } from "./ingress.server";
+import {
+  claimExternalIngressReceipt,
+  IngressSecurityError,
+  markExternalIngressReceipt,
+  readBoundedRequestBody,
+  sha256Hex,
+} from "./ingress-security.server";
 import { verifyHmacBody } from "./remote-engine.server";
 
 const ExecutionEnvelope = z.object({
@@ -17,24 +23,6 @@ const ExecutionEnvelope = z.object({
   causationId: z.string().max(240).optional(),
   data: z.record(z.string(), z.unknown()).default({}),
 });
-
-function serviceDb() {
-  const url = process.env.SUPABASE_URL;
-  const secret =
-    process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !secret) {
-    throw new Error(
-      "Execution OS event ingress requires SUPABASE_URL and SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY).",
-    );
-  }
-  return createClient<Database>(url, secret, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  });
-}
 
 function sharedSecret() {
   const value = process.env.HOS_EXECUTION_SHARED_SECRET?.trim();
@@ -51,25 +39,37 @@ function isUuid(value?: string) {
 }
 
 export async function handleExecutionOsEventIngress(request: Request) {
+  const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+  let receiptId: string | null = null;
+  let db: ReturnType<typeof createProductionServiceDb> | null = null;
+
   if (request.method !== "POST") {
-    return new Response(JSON.stringify({ error: "method_not_allowed" }), {
-      status: 405,
-      headers: { "content-type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: "method_not_allowed", request_id: requestId }),
+      {
+        status: 405,
+        headers: {
+          "content-type": "application/json",
+          allow: "POST",
+          "cache-control": "no-store",
+        },
+      },
+    );
   }
 
   try {
-    const body = await request.text();
+    const body = await readBoundedRequestBody(request);
     const signature = request.headers.get("x-execution-os-signature") ?? "";
     if (!verifyHmacBody(body, signature, sharedSecret())) {
-      return new Response(JSON.stringify({ error: "invalid_signature" }), {
-        status: 401,
-        headers: { "content-type": "application/json" },
-      });
+      throw new IngressSecurityError(
+        401,
+        "invalid_signature",
+        "External engine signature validation failed.",
+      );
     }
 
     const envelope = ExecutionEnvelope.parse(JSON.parse(body));
-    const db = serviceDb();
+    db = createProductionServiceDb();
 
     const { data: configuredTenant, error: tenantError } = await db
       .from("engine_config")
@@ -78,15 +78,53 @@ export async function handleExecutionOsEventIngress(request: Request) {
       .eq("engine_id", "execution-os")
       .eq("key", "tenant_id")
       .maybeSingle();
-    if (tenantError) throw new Error(tenantError.message);
-    if (
-      configuredTenant?.value &&
-      configuredTenant.value !== envelope.tenantId
-    ) {
-      return new Response(JSON.stringify({ error: "tenant_mismatch" }), {
-        status: 403,
-        headers: { "content-type": "application/json" },
-      });
+    if (tenantError) throw tenantError;
+    if (!configuredTenant?.value) {
+      throw new IngressSecurityError(
+        503,
+        "engine_not_configured",
+        "Execution OS tenant binding is not configured.",
+      );
+    }
+    if (configuredTenant.value !== envelope.tenantId) {
+      throw new IngressSecurityError(
+        403,
+        "tenant_mismatch",
+        "Execution OS tenant assertion does not match HOS configuration.",
+      );
+    }
+
+    const bodyHash = sha256Hex(body);
+    const receipt = await claimExternalIngressReceipt(db, {
+      userId: envelope.subjectId,
+      provider: "execution-os",
+      eventId: envelope.id,
+      bodyHash,
+      metadata: {
+        body_sha256: bodyHash,
+        event_type: envelope.type,
+        occurred_at: envelope.occurredAt,
+        tenant_id: envelope.tenantId,
+        request_id: requestId,
+      },
+    });
+    receiptId = receipt.receiptId;
+
+    if (receipt.state === "duplicate_processed") {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          deduped: true,
+          request_id: requestId,
+        }),
+        {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+            "cache-control": "no-store",
+          },
+        },
+      );
     }
 
     const payload = {
@@ -110,26 +148,66 @@ export async function handleExecutionOsEventIngress(request: Request) {
         : {}),
     });
 
+    await markExternalIngressReceipt(db, receiptId, "processed");
+
     return new Response(
       JSON.stringify({
         ok: true,
         event_id: result.event_id,
         deduped: result.deduped,
         deliveries: result.deliveries,
+        request_id: requestId,
       }),
       {
         status: result.deduped ? 200 : 202,
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "cache-control": "no-store",
+        },
       },
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("[Execution OS ingress]", error);
+    const internalMessage =
+      error instanceof Error ? error.message : String(error);
+    if (db && receiptId) {
+      try {
+        await markExternalIngressReceipt(
+          db,
+          receiptId,
+          "failed",
+          internalMessage,
+        );
+      } catch (receiptError) {
+        console.error("[Execution OS ingress receipt]", receiptError);
+      }
+    }
+
+    const securityError =
+      error instanceof IngressSecurityError ? error : null;
+    const validationError = error instanceof z.ZodError;
+    const status = securityError?.status ?? (validationError ? 400 : 503);
+    const code =
+      securityError?.code ??
+      (validationError ? "invalid_envelope" : "ingress_unavailable");
+
+    console.error("[Execution OS ingress]", {
+      request_id: requestId,
+      code,
+      error,
+    });
+
     return new Response(
-      JSON.stringify({ error: "ingress_failed", message }),
+      JSON.stringify({
+        error: code,
+        request_id: requestId,
+      }),
       {
-        status: 400,
-        headers: { "content-type": "application/json" },
+        status,
+        headers: {
+          "content-type": "application/json",
+          "cache-control": "no-store",
+          ...(status === 429 ? { "retry-after": "60" } : {}),
+        },
       },
     );
   }

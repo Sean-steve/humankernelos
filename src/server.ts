@@ -5,6 +5,7 @@ import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { handlePlatformProbe } from "./lib/api/platform-api.server";
 import { handleExternalEngineIngress } from "./lib/external-engines/ingress.server";
+import { applySecurityHeaders } from "./lib/http-security.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -51,20 +52,26 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const externalIngress = await handleExternalEngineIngress(request);
-      if (externalIngress) return externalIngress;
+      if (externalIngress) return applySecurityHeaders(request, externalIngress);
 
-      const probe = handlePlatformProbe(request);
-      if (probe) return probe;
+      const probe = await handlePlatformProbe(request);
+      if (probe) return applySecurityHeaders(request, probe);
 
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      return applySecurityHeaders(
+        request,
+        await normalizeCatastrophicSsrResponse(response),
+      );
     } catch (error) {
       console.error(error);
-      return new Response(renderErrorPage(), {
-        status: 500,
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
+      return applySecurityHeaders(
+        request,
+        new Response(renderErrorPage(), {
+          status: 500,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        }),
+      );
     }
   },
 };

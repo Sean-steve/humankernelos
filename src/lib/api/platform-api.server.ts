@@ -1,4 +1,5 @@
 import { PLATFORM_VERSION, SDK_VERSION } from "../platform-manager.server";
+import { getPublicProductionReadiness } from "../production.server";
 
 function requestId(request: Request) {
   return request.headers.get("x-request-id") ?? crypto.randomUUID();
@@ -29,7 +30,7 @@ function json(data: unknown, status = 200, id?: string) {
  * imply database readiness; storage/integration health remains authenticated
  * Platform Manager data.
  */
-export function handlePlatformProbe(request: Request): Response | null {
+export async function handlePlatformProbe(request: Request): Promise<Response | null> {
   const url = new URL(request.url);
   if (request.method !== "GET") return null;
 
@@ -44,6 +45,20 @@ export function handlePlatformProbe(request: Request): Response | null {
         sdk_version: SDK_VERSION,
       },
       200,
+      id,
+    );
+  }
+
+  if (url.pathname === "/api/v1/readiness") {
+    const readiness = await getPublicProductionReadiness();
+    return json(
+      {
+        service: "humankernelos",
+        ...readiness,
+        platform_version: PLATFORM_VERSION,
+        sdk_version: SDK_VERSION,
+      },
+      readiness.ready ? 200 : 503,
       id,
     );
   }

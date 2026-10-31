@@ -175,23 +175,16 @@ async function publicExecutionOsProbe(baseUrl: string) {
     throw new Error(`Execution OS manifest probe failed with HTTP ${manifestRes.status}.`);
   }
 
-  const manifestPayload = (await manifestRes.json()) as
-    | ApiEnvelope<RemoteManifest>
-    | RemoteManifest;
+  const manifestPayload = (await manifestRes.json()) as ApiEnvelope<RemoteManifest>;
   const readinessPayload = (await readinessRes.json().catch(() => null)) as
     | ApiEnvelope<RemoteReadiness>
-    | RemoteReadiness
     | null;
-  const manifest =
-    "data" in manifestPayload && manifestPayload.data
-      ? manifestPayload.data
-      : manifestPayload;
-  const readiness =
-    readinessPayload &&
-    "data" in readinessPayload &&
-    readinessPayload.data
-      ? readinessPayload.data
-      : readinessPayload;
+  const manifest = manifestPayload.data;
+  const readiness = readinessPayload?.data ?? null;
+
+  if (!manifest) {
+    throw new Error("Execution OS manifest response did not contain a data payload.");
+  }
 
   const required = new Set(EXECUTION_OS_DESCRIPTOR.capabilities);
   const remoteCapabilities = new Set(

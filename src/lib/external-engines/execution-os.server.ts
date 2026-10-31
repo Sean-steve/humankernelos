@@ -544,7 +544,6 @@ async function ingestExecutionScheduleProposal(
   }
 }
 
-const anyPayload = z.record(z.string(), z.unknown()).passthrough?.() ?? z.record(z.string(), z.unknown());
 
 for (const [capability, scope] of Object.entries(capabilityScopes) as Array<
   [keyof typeof capabilityScopes, (typeof capabilityScopes)[keyof typeof capabilityScopes]]

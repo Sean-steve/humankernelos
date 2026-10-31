@@ -323,8 +323,7 @@ export const decideDailyPlanProposal = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
       if (
         data.decision === "rejected" &&
-        externalProposalId &&
-        proposal.source_engine === "execution-os"
+        externalProposalId
       ) {
         await emitScheduleProposalResolved(context, {
           proposalId: proposal.id,
@@ -397,7 +396,7 @@ export const decideDailyPlanProposal = createServerFn({ method: "POST" })
       .eq("user_id", context.userId);
     if (updateError) throw new Error(updateError.message);
 
-    if (externalProposalId && proposal.source_engine === "execution-os") {
+    if (externalProposalId) {
       await emitScheduleProposalResolved(context, {
         proposalId: proposal.id,
         sourceEngine: proposal.source_engine,

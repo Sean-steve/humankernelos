@@ -110,7 +110,7 @@ export const REGISTERED_ENGINES: EngineDescriptor[] = [
     purpose:
       "Compatibility tracker for simple routine completions and streaks. This is not the authoritative Routine Execution OS / HEE and must not be expanded into that domain.",
     owner: "HOS Core (Legacy Compatibility)",
-    status: "active",
+    status: "deprecated",
     capabilities: ["mark_complete", "streak_calculation"],
     dataOwned: ["routine_completions"],
     eventsPublished: ["RoutineCompleted"],
@@ -234,8 +234,8 @@ export const REGISTERED_ENGINES: EngineDescriptor[] = [
     eventsPublished: [],
     eventsConsumed: ["CheckInSubmitted", "MealLogged", "WorkoutCompleted", "RoutineCompleted"],
     publishedSignals: ["hsv.composite"],
-    requiredSignals: ["nutrition.kcal", "body.load_7d", "routine.streak"],
-    dependencies: ["nutrition", "body", "routine"],
+    requiredSignals: ["nutrition.kcal", "body.load_7d"],
+    dependencies: ["nutrition", "body"],
     permissions: {
       dataRequested: ["all engine signals", "check_ins"],
       dataProvided: ["hsv"],
@@ -321,10 +321,9 @@ export const REGISTERED_ENGINES: EngineDescriptor[] = [
       "nutrition.protein_g",
       "nutrition.hydration_ml",
       "body.load_7d",
-      "routine.streak",
       "learning.adherence",
     ],
-    dependencies: ["nutrition", "body", "routine", "learning"],
+    dependencies: ["nutrition", "body", "learning"],
     permissions: {
       dataRequested: ["engine_signals", "check_ins"],
       dataProvided: ["fused_axes", "priorities", "conflicts"],

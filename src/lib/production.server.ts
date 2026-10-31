@@ -79,6 +79,54 @@ export function validateProductionEnvironment(
   ];
 }
 
+export type OperationalProof = {
+  name: "backup_verified" | "restore_drill_verified";
+  ok: boolean;
+  critical: true;
+  verified_at: string | null;
+  detail: string;
+};
+
+function proofIsFresh(
+  value: string | undefined,
+  maxAgeDays: number,
+  now = Date.now(),
+) {
+  if (!value) return false;
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp) || timestamp > now + 5 * 60_000) return false;
+  return now - timestamp <= maxAgeDays * 24 * 60 * 60 * 1000;
+}
+
+export function validateOperationalProof(
+  env: NodeJS.ProcessEnv = process.env,
+  now = Date.now(),
+): OperationalProof[] {
+  const backup = env.HOS_BACKUP_VERIFIED_AT;
+  const restore = env.HOS_RESTORE_DRILL_VERIFIED_AT;
+
+  return [
+    {
+      name: "backup_verified",
+      ok: proofIsFresh(backup, 30, now),
+      critical: true,
+      verified_at: backup ?? null,
+      detail: backup
+        ? "Backup evidence must be no older than 30 days."
+        : "No recent production backup verification evidence is configured.",
+    },
+    {
+      name: "restore_drill_verified",
+      ok: proofIsFresh(restore, 90, now),
+      critical: true,
+      verified_at: restore ?? null,
+      detail: restore
+        ? "Restore-drill evidence must be no older than 90 days."
+        : "No recent restore-drill verification evidence is configured.",
+    },
+  ];
+}
+
 export function productionConfigReady(
   checks: ProductionCheck[] = validateProductionEnvironment(),
 ) {

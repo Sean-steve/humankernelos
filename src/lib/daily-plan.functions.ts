@@ -428,5 +428,11 @@ export const activateDailyPlan = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
+    await emitDailyPlanChanged(
+      context,
+      active.id,
+      active.plan_date,
+      "plan_activated",
+    );
     return { plan: active };
   });

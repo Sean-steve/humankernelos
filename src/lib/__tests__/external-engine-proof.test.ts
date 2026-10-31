@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -139,6 +140,5 @@ describe("Phase 5 external engine proof — Execution OS contract", () => {
 });
 
 function signBody(body: string, secret: string) {
-  const { createHmac } = require("node:crypto") as typeof import("node:crypto");
   return createHmac("sha256", secret).update(body).digest("hex");
 }

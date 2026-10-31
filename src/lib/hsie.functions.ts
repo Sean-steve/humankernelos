@@ -35,7 +35,7 @@ export const computeHumanStateVector = createServerFn({ method: "POST" })
       supabase
         .from("engine_signals")
         .select(
-          "engine, signal_key, value_num, value_text, confidence, reliability, trend, occurred_at",
+          "engine, signal_key, value_num, value_text, confidence, reliability, trend, metadata, occurred_at",
         )
         .order("occurred_at", { ascending: false })
         .limit(300),

@@ -204,7 +204,9 @@ export async function invokeExecutionOsCapability(
       : undefined,
     correlationId,
   });
-  return response?.data?.data ?? response?.data ?? response;
+  const outer = asUnknownRecord(response);
+  const data = asUnknownRecord(outer?.data);
+  return data?.data ?? outer?.data ?? response;
 }
 
 function minutesInTimeZone(iso: string, timeZone: string) {
@@ -418,6 +420,12 @@ async function sendHumanStateToExecutionOs(db: Db, userId: string, eventId: stri
     idempotencyKey: `human-state-${eventId}`,
     correlationId: eventId,
   });
+}
+
+function asUnknownRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
 function executionBehaviorProjection(payload: Record<string, unknown>) {
@@ -637,8 +645,10 @@ registerRuntimeLifecycleAdapter({
       const base = await executionOsBaseUrl(db, userId);
       const response = await fetch(`${base}/api/v1/hos/readiness`);
       if (!response.ok) return { health: "degraded", note: `Readiness HTTP ${response.status}` };
-      const payload = (await response.json()) as any;
-      return payload?.data?.status === "ready"
+      const payload = (await response.json()) as {
+        data?: { status?: string };
+      };
+      return payload.data?.status === "ready"
         ? { health: "healthy", note: "Execution OS HOS boundary ready" }
         : { health: "degraded", note: "Execution OS reports not_ready" };
     } catch (error) {

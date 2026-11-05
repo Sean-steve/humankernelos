@@ -218,12 +218,18 @@ function AccountBadge() {
   return (
     <div className="rounded-xl border hairline bg-surface/40 p-3 text-xs">
       <div className="truncate text-foreground/90">{email}</div>
-      <button
-        onClick={() => supabase.auth.signOut()}
-        className="mt-1.5 text-[11px] text-muted-foreground hover:text-foreground"
-      >
-        Sign out
-      </button>
+      {import.meta.env.VITE_DATABASE_PROVIDER === "postgres" ? (
+        <div className="mt-1.5 text-[11px] text-muted-foreground">
+          Local PostgreSQL session
+        </div>
+      ) : (
+        <button
+          onClick={() => supabase.auth.signOut()}
+          className="mt-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+        >
+          Sign out
+        </button>
+      )}
     </div>
   );
 }

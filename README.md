@@ -98,14 +98,62 @@ Development proceeds in this order:
 
 See `docs/` for the canonical architecture and ownership rules.
 
-## Development
+## Local development — plain PostgreSQL
+
+HumanKernelOS does **not** require Supabase for local development.
+
+Prerequisites:
+
+- Node.js/Bun
+- PostgreSQL running locally on Ubuntu
+
+First run:
 
 ```sh
-npm install
-npm run dev
+cp .env.example .env
+bun install
+bun run db:setup
+bun run dev
 ```
 
-Bun is the canonical package manager for this repository; `bun.lock` is the authoritative dependency lockfile.\n\nThe application currently uses TanStack Start, React, TypeScript, Supabase/PostgreSQL, Zod, React Query and Tailwind CSS.
+`db:setup` uses the PostgreSQL service already installed on the machine, creates the local `hos_user` and `humankernelos` database if necessary, applies the canonical HOS migrations, and seeds a single local development operator.
+
+Normal subsequent startup:
+
+```sh
+bun run db:check
+bun run db:migrate
+bun run dev
+```
+
+Reset the local database:
+
+```sh
+bun run db:reset
+```
+
+Default local connection:
+
+```text
+postgresql://hos_user:hos_local_password@127.0.0.1:5432/humankernelos
+```
+
+The local runtime uses a stable development identity and automatically bypasses the hosted login screen. Local auth is explicitly rejected in production.
+
+### Optional Supabase mode
+
+Supabase remains supported as an optional hosted PostgreSQL/Auth provider. To use it, set:
+
+```env
+DATABASE_PROVIDER=supabase
+VITE_DATABASE_PROVIDER=supabase
+```
+
+and provide the Supabase URL/keys in `.env`.
+
+Bun is the canonical package manager; `bun.lock` is the authoritative dependency lockfile.
+
+The application uses TanStack Start, React, TypeScript, PostgreSQL, Zod, React Query and Tailwind CSS.
 
 ## Live app
 

@@ -1,5 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { checkPostgresConnection, createPostgresDb } from "@/integrations/postgres/client.server";
+import type { Db } from "./permissions.server";
 
 export type ProductionCheck = {
   name: string;
@@ -21,38 +23,64 @@ export function validateProductionEnvironment(
   env: NodeJS.ProcessEnv = process.env,
 ): ProductionCheck[] {
   const production = env.NODE_ENV === "production";
+  const provider = (env.DATABASE_PROVIDER ?? "supabase").toLowerCase();
   const requireExecutionOs = env.HOS_REQUIRE_EXECUTION_OS === "true";
   const serviceSecret =
     env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY || "";
   const executionSecret = env.HOS_EXECUTION_SHARED_SECRET || "";
 
+  const databaseChecks: ProductionCheck[] =
+    provider === "postgres"
+      ? [
+          {
+            name: "postgres_database_url",
+            ok: Boolean(env.DATABASE_URL),
+            critical: true,
+            detail: env.DATABASE_URL
+              ? "PostgreSQL DATABASE_URL configured."
+              : "DATABASE_URL is missing.",
+          },
+          {
+            name: "postgres_identity",
+            ok: !production || (env.AUTH_PROVIDER ?? "local") !== "local",
+            critical: production,
+            detail:
+              !production || (env.AUTH_PROVIDER ?? "local") !== "local"
+                ? "Production identity boundary configured independently of local auth."
+                : "Local PostgreSQL auth is development-only; configure a production identity provider.",
+          },
+        ]
+      : [
+          {
+            name: "supabase_url",
+            ok: Boolean(env.SUPABASE_URL) && (!production || isHttpsUrl(env.SUPABASE_URL)),
+            critical: true,
+            detail: env.SUPABASE_URL
+              ? production && !isHttpsUrl(env.SUPABASE_URL)
+                ? "Production Supabase URL must use HTTPS."
+                : "Supabase URL configured."
+              : "Supabase URL is missing.",
+          },
+          {
+            name: "supabase_publishable_key",
+            ok: Boolean(env.SUPABASE_PUBLISHABLE_KEY),
+            critical: true,
+            detail: env.SUPABASE_PUBLISHABLE_KEY
+              ? "Publishable key configured."
+              : "Publishable key is missing.",
+          },
+          {
+            name: "supabase_server_secret",
+            ok: serviceSecret.length >= 20,
+            critical: true,
+            detail: serviceSecret.length >= 20
+              ? "Server-only Supabase credential configured."
+              : "A server-only Supabase secret/service-role credential is required.",
+          },
+        ];
+
   return [
-    {
-      name: "supabase_url",
-      ok: Boolean(env.SUPABASE_URL) && (!production || isHttpsUrl(env.SUPABASE_URL)),
-      critical: true,
-      detail: env.SUPABASE_URL
-        ? production && !isHttpsUrl(env.SUPABASE_URL)
-          ? "Production Supabase URL must use HTTPS."
-          : "Supabase URL configured."
-        : "Supabase URL is missing.",
-    },
-    {
-      name: "supabase_publishable_key",
-      ok: Boolean(env.SUPABASE_PUBLISHABLE_KEY),
-      critical: true,
-      detail: env.SUPABASE_PUBLISHABLE_KEY
-        ? "Publishable key configured."
-        : "Publishable key is missing.",
-    },
-    {
-      name: "supabase_server_secret",
-      ok: serviceSecret.length >= 20,
-      critical: true,
-      detail: serviceSecret.length >= 20
-        ? "Server-only Supabase credential configured."
-        : "A server-only Supabase secret/service-role credential is required.",
-    },
+    ...databaseChecks,
     {
       name: "execution_os_url",
       ok:
@@ -135,7 +163,15 @@ export function productionConfigReady(
 
 export function createProductionServiceDb(
   env: NodeJS.ProcessEnv = process.env,
-): SupabaseClient<Database> {
+): Db {
+  const provider = (env.DATABASE_PROVIDER ?? "supabase").toLowerCase();
+  if (provider === "postgres") {
+    if (!env.DATABASE_URL) {
+      throw new Error("DATABASE_URL is not configured.");
+    }
+    return createPostgresDb() as unknown as Db;
+  }
+
   const url = env.SUPABASE_URL;
   const secret = env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !secret) {
@@ -148,7 +184,7 @@ export function createProductionServiceDb(
       autoRefreshToken: false,
       detectSessionInUrl: false,
     },
-  });
+  }) as unknown as Db;
 }
 
 export async function getPublicProductionReadiness(
@@ -160,9 +196,14 @@ export async function getPublicProductionReadiness(
   let databaseOk = false;
   if (configOk) {
     try {
-      const db = createProductionServiceDb(env);
-      const { error } = await db.from("engines").select("id").limit(1);
-      databaseOk = !error;
+      if ((env.DATABASE_PROVIDER ?? "supabase").toLowerCase() === "postgres") {
+        await checkPostgresConnection();
+        databaseOk = true;
+      } else {
+        const db = createProductionServiceDb(env);
+        const { error } = await db.from("engines").select("id").limit(1);
+        databaseOk = !error;
+      }
     } catch {
       databaseOk = false;
     }

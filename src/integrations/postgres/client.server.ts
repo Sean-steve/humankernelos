@@ -111,7 +111,7 @@ async function detectOwnershipColumn(client: PoolClient, table: string) {
   return ownership;
 }
 
-class PostgresQueryBuilder implements PromiseLike<ResultShape<any>> {
+class PostgresQueryBuilder implements PromiseLike<ResultShape> {
   private action: MutationMode | "select" = "select";
   private selected = "*";
   private mutationPayload: unknown = null;
@@ -264,9 +264,9 @@ class PostgresQueryBuilder implements PromiseLike<ResultShape<any>> {
     return this;
   }
 
-  then<TResult1 = ResultShape<any>, TResult2 = never>(
-    onfulfilled?: ((value: ResultShape<any>) => TResult1 | PromiseLike<TResult1>) | null,
-    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
+  then<TResult1 = ResultShape, TResult2 = never>(
+    onfulfilled?: ((value: ResultShape) => TResult1 | PromiseLike<TResult1>) | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ): PromiseLike<TResult1 | TResult2> {
     return this.execute().then(onfulfilled, onrejected);
   }
@@ -479,7 +479,7 @@ class PostgresQueryBuilder implements PromiseLike<ResultShape<any>> {
     return { data: rows, error: null };
   }
 
-  private async execute(): Promise<ResultShape<any>> {
+  private async execute(): Promise<ResultShape> {
     const client = await getPostgresPool().connect();
     try {
       await client.query("BEGIN");

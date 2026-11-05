@@ -1,0 +1,35 @@
+name: Refresh Bun lock for PostgreSQL runtime
+
+on:
+  push:
+    branches:
+      - phase-6-2-local-postgres-runtime
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-postgres-lock
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: phase-6-2-local-postgres-runtime
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+      - run: bun install
+      - name: Commit lockfile and remove one-time workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/refresh-postgres-lock.yml
+          git add bun.lock
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "build(postgres): refresh Bun lockfile"
+          git push origin HEAD:phase-6-2-local-postgres-runtime

@@ -2,10 +2,9 @@
 // Consent is resolved from persisted decisions; Kernel-owned engines are
 // allowed by default, third-party engines are denied until explicitly granted.
 
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/integrations/supabase/types";
-
-export type Db = SupabaseClient<Database>;
+export type Db = {
+  from(table: string): any;
+};
 
 export class ConsentDeniedError extends Error {
   constructor(

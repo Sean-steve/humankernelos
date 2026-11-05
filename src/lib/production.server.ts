@@ -169,7 +169,7 @@ export function createProductionServiceDb(
     if (!env.DATABASE_URL) {
       throw new Error("DATABASE_URL is not configured.");
     }
-    return createPostgresDb() as Db;
+    return createPostgresDb() as unknown as Db;
   }
 
   const url = env.SUPABASE_URL;

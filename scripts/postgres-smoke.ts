@@ -78,3 +78,5 @@ console.log({
   scoped_goal_count: scopedGoals.data.length,
   check_in_id: checkIn.data?.id,
 });
+
+await pool.end();

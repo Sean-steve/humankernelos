@@ -18,6 +18,7 @@ type MutationMode = "insert" | "upsert" | "update" | "delete";
 type ResultShape<T = unknown> = {
   data: T | null;
   error: null | { message: string; code?: string; details?: string };
+  count?: number | null;
 };
 
 const SAFE_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -121,6 +122,8 @@ class PostgresQueryBuilder implements PromiseLike<ResultShape<any>> {
   private conflictColumns: string[] = [];
   private ignoreDuplicates = false;
   private returning = false;
+  private exactCount = false;
+  private headOnly = false;
 
   constructor(
     private readonly table: string,
@@ -129,8 +132,13 @@ class PostgresQueryBuilder implements PromiseLike<ResultShape<any>> {
     ident(table);
   }
 
-  select(columns = "*") {
+  select(
+    columns = "*",
+    options?: { count?: "exact"; head?: boolean },
+  ) {
     this.selected = columns;
+    this.exactCount = options?.count === "exact";
+    this.headOnly = options?.head === true;
     if (this.action !== "select") this.returning = true;
     return this;
   }
@@ -336,11 +344,19 @@ class PostgresQueryBuilder implements PromiseLike<ResultShape<any>> {
     const table = `public.${ident(this.table)}`;
 
     if (this.action === "select") {
+      const projection =
+        this.exactCount && this.headOnly
+          ? "COUNT(*)::int AS __exact_count"
+          : selectList(this.selected);
       const sql =
-        `SELECT ${selectList(this.selected)} FROM ${table}` +
+        `SELECT ${projection} FROM ${table}` +
         this.buildWhere(values) +
-        this.buildOrder() +
-        (this.rowLimit !== undefined ? ` LIMIT ${Math.max(0, Math.floor(this.rowLimit))}` : "");
+        (this.headOnly ? "" : this.buildOrder()) +
+        (this.headOnly
+          ? ""
+          : this.rowLimit !== undefined
+            ? ` LIMIT ${Math.max(0, Math.floor(this.rowLimit))}`
+            : "");
       return { sql, values };
     }
 
@@ -422,6 +438,14 @@ class PostgresQueryBuilder implements PromiseLike<ResultShape<any>> {
 
   private shape(result: QueryResult) {
     const rows = result.rows ?? [];
+
+    if (this.exactCount && this.headOnly) {
+      return {
+        data: null,
+        error: null,
+        count: Number((rows[0] as { __exact_count?: number } | undefined)?.__exact_count ?? 0),
+      };
+    }
     if (this.singleMode === "single") {
       if (rows.length !== 1) {
         return {

@@ -21,7 +21,7 @@ const EventInput = z.object({
 
 export const publishEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => EventInput.parse(d))
+  .validator((d: unknown) => EventInput.parse(d))
   .handler(async ({ data, context }) => {
     const result = await publishAndDispatch(context.supabase, context.userId, {
       type: data.type,
@@ -50,7 +50,7 @@ const SignalInput = z.object({
 
 export const publishSignal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => SignalInput.parse(d))
+  .validator((d: unknown) => SignalInput.parse(d))
   .handler(async ({ data, context }) => {
     // A disabled engine cannot publish (Spec Ch. 6 lifecycle enforcement).
     await assertEngineActive(context.supabase, context.userId, data.engine);
@@ -92,7 +92,7 @@ const RegisterEngineInput = z.object({
 
 export const registerEngine = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => RegisterEngineInput.parse(d))
+  .validator((d: unknown) => RegisterEngineInput.parse(d))
   .handler(async ({ data, context }) => {
     const { PLATFORM_VERSION, SDK_VERSION, stateIsOperational } = await import(
       "./platform-manager.server"
@@ -214,7 +214,7 @@ const SetStatusInput = z.object({
 
 export const setEngineStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => SetStatusInput.parse(d))
+  .validator((d: unknown) => SetStatusInput.parse(d))
   .handler(async ({ data, context }) => {
     const { transition, uninstall, stateIsOperational } = await import(
       "./platform-manager.server"

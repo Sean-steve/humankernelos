@@ -58,7 +58,7 @@ export const getPlatformStatus = createServerFn({ method: "GET" })
 
 export const transitionEngine = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
+  .validator((d: unknown) =>
     z
       .object({
         engine_id: z.string().min(1).max(64),
@@ -83,7 +83,7 @@ export const transitionEngine = createServerFn({ method: "POST" })
 
 export const validateEngineInstall = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
+  .validator((d: unknown) =>
     z.object({ engine_id: z.string().min(1).max(64) }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -176,7 +176,7 @@ export const getEngineConfig = createServerFn({ method: "GET" })
 
 export const setEngineConfig = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
+  .validator((d: unknown) =>
     z
       .object({
         engine_id: z.string().min(1).max(64),

@@ -184,6 +184,12 @@ function EngineRegistryPage() {
         </div>
       )}
 
+      {toggle.error && (
+        <div className="mt-4 rounded-lg border hairline bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {toggle.error.message}
+        </div>
+      )}
+
       <section className="mt-6 grid gap-4 md:grid-cols-2">
         {REGISTERED_ENGINES.map((e) => (
           <EngineCard

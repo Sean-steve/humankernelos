@@ -285,7 +285,7 @@ async function persistExecutionOsRuntimeContracts(
 
 export const connectExecutionOs = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => ConnectInput.parse(input ?? {}))
+  .validator((input: unknown) => ConnectInput.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const baseUrl = normalizedBaseUrl(
       data.base_url ||
@@ -556,7 +556,7 @@ const ActionInput = z.object({
 
 export const invokeExecutionOsAction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => ActionInput.parse(input))
+  .validator((input: unknown) => ActionInput.parse(input))
   .handler(async ({ data, context }) => {
     const result = await invokeCapability(context.supabase, context.userId, {
       consumer_engine_id: "daily-plan",
